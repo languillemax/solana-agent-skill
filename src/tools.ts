@@ -30,18 +30,19 @@ export const DEFAULT_RISK_CONFIG: RiskConfig = {
   maxLeverage: 10
 };
 
-export function validateRiskLimits(params: { amount?: number; leverage?: number }, config = DEFAULT_RISK_CONFIG) {
-  if (params.amount && params.amount > config.maxAmountSol) {
+export function validateRiskLimits(params: { amount?: number; amountSol?: number; leverage?: number }, config = DEFAULT_RISK_CONFIG) {
+  const amountToValidate = params.amount ?? params.amountSol;
+  if (amountToValidate !== undefined && amountToValidate > config.maxAmountSol) {
     return { valid: false, code: 'RISK_LIMIT_EXCEEDED', message: 'Amount exceeds safety limit' };
   }
-  if (params.leverage && params.leverage > config.maxLeverage) {
+  if (params.leverage !== undefined && params.leverage > config.maxLeverage) {
     return { valid: false, code: 'LEVERAGE_EXCEEDED', message: 'Leverage exceeds safety limit' };
   }
   return { valid: true };
 }
 
 export async function simulateTransaction(txData: any, forceFail = false) {
-  if (forceFail || (txData && txData.amount > 1000)) {
+  if (forceFail || (txData && (txData.amount > 1000 || txData.amountSol > 1000))) {
     return { success: false, error: { code: 'SIMULATION_FAILED', message: 'Instruction execution reverted' } };
   }
   return { success: true, logs: ['Program Log: Instruction: Execute', 'Program consumed 12400 compute units'] };
