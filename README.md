@@ -17,15 +17,13 @@ graph TD
     Client --> Eliza
     Express --> Skill[Solana Agent Skill Toolkit]
     Eliza --> Skill
-    Skill --> Protocols
-    subgraph Protocols[Écosystème Solana]
-        Jupiter[Jupiter v6 / Perps]
-        Drift[Drift Protocol]
-        Kamino[Kamino / Marginfi]
-        Squads[Squads Multisig v4]
-        Pump[Pump.fun / Raydium]
-        Token[Token-2022 / cNFTs]
-    end
+
+    Skill --> Jupiter[Jupiter v6 / Perps]
+    Skill --> Drift[Drift Protocol]
+    Skill --> Kamino[Kamino / Marginfi]
+    Skill --> Squads[Squads Multisig v4]
+    Skill --> Pump[Pump.fun / Raydium]
+    Skill --> Token[Token-2022 / cNFTs]
     Skill --> RPC[Helius / QuickNode RPC]
 ```
 
@@ -37,22 +35,22 @@ Mécanismes de validation et de contrôle d'exécution destinés à réduire les
 - **Gestion Isolée des Clés** : Signature exclusive via variables d'environnement, aucun stockage de clé privée dans le code.
 - **Interception des Erreurs RPC** : Interception et normalisation des erreurs RPC avec renvoi de messages structurés à l'agent.
 
-## 🧪 13 Critical-Path Test Scenarios
+## 🧪 13 Critical-Path Tests — 10 Test Areas
 
-> **Validation Scope** : Les scénarios combinent tests unitaires, contractuels, simulations, fixtures et intégrations HTTP/API selon le module ; ils ne constituent pas une exécution Mainnet exhaustive de toutes les opérations.
+> **Validation Scope** : Les 13 scénarios de test exécutés par `npm test` sont regroupés en 10 domaines fonctionnels dans la matrice ci-dessous. Ils combinent tests unitaires, contractuels, simulations, fixtures et intégrations HTTP/API selon le module ; ils ne constituent pas une exécution Mainnet exhaustive de toutes les opérations.
 
-La suite de tests (`npm test`) couvre **13 scénarios critiques** sur les surfaces principales d'intégration et d'exécution :
+La suite de tests (`npm test`) couvre **13 scénarios critiques** répartis sur les surfaces principales d'intégration et d'exécution :
 
 | Scénario / Module | Nature du Test | Périmètre Réellement Vérifié | Statut |
 | :--- | :--- | :--- | :---: |
-| **Core Specs** | Unitaire (Zod) | Validation stricte des schémas d'entrée AI | Conforme |
-| **ElizaOS Plugin** | Contrat Structurel | Enregistrement correct des actions & handlers | Conforme |
-| **v1.1 Base** | Live API / RPC Simulé | Prix Jupiter Price v2 & simulation Staking Jito | Conforme |
+| **Core Specs** | Unit / Schema | Validation stricte des schémas d'entrée AI | Conforme |
+| **ElizaOS Plugin** | Structural Contract | Enregistrement correct des actions & handlers | Conforme |
+| **v1.1 Base** | Live API / Simulated RPC | Prix Jupiter Price v2 & simulation Staking Jito | Conforme |
 | **API REST** | E2E Integration | Serveur HTTP Express & validation des routes | Conforme |
 | **M1 : Launchpad & DEX** | Live HTTP API | Métadonnées Pump.fun & structure d'ordre Raydium | Conforme |
-| **M2 : Money Markets** | Calculator / Sim | Taux Kamino/Marginfi & validation d'emprunt | Conforme |
-| **M3 : Perps & Levier** | Contract Sim | Bornes de levier & paramètres Drift / Jup Perps | Conforme |
-| **M4 : Multisig & Blinks** | Spec & URL Test | Génération de multisig Squads v4 & liens Blinks | Conforme |
+| **M2 : Money Markets** | Calculator / Simulation | Taux Kamino/Marginfi & validation d'emprunt | Conforme |
+| **M3 : Perps & Levier** | Contract Simulation | Bornes de levier & paramètres Drift / Jup Perps | Conforme |
+| **M4 : Multisig & Blinks** | Spec / URL Test | Génération de multisig Squads v4 & liens Blinks | Conforme |
 | **M5 : Signals** | Fixture Replay | Traitement et parsing de payloads Webhook Helius | Conforme |
 | **M6 : Advanced Assets** | Logic / Spec Test | Extensions Token-2022 (Transfer Tax) & cNFTs | Conforme |
 
