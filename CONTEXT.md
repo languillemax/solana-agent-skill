@@ -8,6 +8,6 @@
 ## Feuille de route
 - [x] Phase 0 : Structure du projet et documentation de reprise
 - [x] Phase 1 : Initialisation de l'Agent Solana (Gestion clés - [x] Phase 1 : Initialisation de l'Agent Solana (Gestion clés - [ ] Phase 1 : Initialisation de l'Agent Solana (Gestion clés & RPC) RPC) RPC)
-- [ ] Phase 2 : Modules d'action (Swap Jupiter / Transferts automatisés / Parsing d'événements)
+- [x] Phase 2 : Modules d'action (Swap Jupiter / Transferts automatisés / Parsing d'événements)
 - [ ] Phase 3 : Dockerisation et suite de tests automatisés
 - [ ] Phase 4 : Packaging final (README de présentation, scripts bash, vidéo démo)
