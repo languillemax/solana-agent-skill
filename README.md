@@ -1,16 +1,20 @@
-# Solana Agent Skill (v1.0.0)
+# Solana Agent Skill (v1.1.0)
 
-> A lightweight, production-ready Solana execution skill for AI Agents (ElizaOS, LangChain, Vercel AI SDK).
+> Industrial-grade, modular Solana execution skill & REST microservice for AI Agents (ElizaOS, LangChain, AutoGen, Vercel AI SDK).
 
-## Features
-- **Jupiter v6 Swap Integration**: Execute token swaps with automated route optimization.
-- **SOL & SPL Token Transfers**: Fast & safe transaction building.
-- **LLM Function Calling Spec**: Pre-formatted tool definitions for OpenAI, Ollama, and Anthropic agents.
-- **Dockerized**: Microservice ready for agent deployment.
+## Key Features
+- **Jupiter v6 Swap Integration**: Automated route evaluation & token swapping.
+- **Jito Liquid Staking**: One-click JitoSOL staking quote and transaction prep.
+- **Real-Time Portfolio & Pricing**: Balances + Jupiter Price API v2 USD valuation.
+- **Native ElizaOS Plugin**: Out-of-the-box `solanaAgentPlugin` integration.
+- **LLM Function Calling Specs**: Pre-formatted JSON schemas for OpenAI, Ollama, and Anthropic.
+- **REST API Microservice**: Endpoint support (`/tools`, `/portfolio`, `/stake/jito`) for non-JS agents.
 
 ## Quick Start
 ```bash
 npm install
 npm run build
-Docker Usage
-docker build -t solana-agent-skill .
+npx tsx demo.ts
+REST API Server
+# Start microservice on port 3000
+npx tsx -e 'import { startServer } from "./src/index.js"; startServer();'
