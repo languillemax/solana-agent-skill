@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-`solana-agent-skill` is a security-first execution adapter and infrastructure kit for autonomous AI agents (ElizaOS, Terminal 3 Network). It enforces deterministic parameter validation and pre-flight RPC simulation gating to prevent agent hallucinations from executing unintended or loss-making on-chain actions.
+`solana-agent-skill` is a security-first execution adapter and infrastructure kit for autonomous AI agents (ElizaOS, Terminal 3 Network). It enforces deterministic parameter validation and pre-flight simulation gating to prevent agent hallucinations from executing unintended or loss-making on-chain actions.
 
 ---
 
