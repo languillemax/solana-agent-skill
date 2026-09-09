@@ -7,14 +7,13 @@ export async function getPortfolio(rpcUrl: string, walletAddress: string) {
   const balanceLamports = await connection.getBalance(pubkey);
   const solBalance = balanceLamports / LAMPORTS_PER_SOL;
 
-  // Interrogation Jupiter Price API v2
   let solPriceUsd = 0;
-  try:
+  try {
     const res = await fetch("https://api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112");
     const data = await res.json();
     solPriceUsd = parseFloat(data?.data?.So11111111111111111111111111111111111111112?.price || "0");
-  catch (e) {
-    // Fallback si indisponible
+  } catch (e) {
+    // Fallback si l'API est indisponible
   }
 
   return {
