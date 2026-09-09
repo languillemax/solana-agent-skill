@@ -1,6 +1,6 @@
 # Solana Agent Skill Toolkit
 
-Infrastructure d'actions on-chain pour agents autonomes Solana, développée en Node.js / TypeScript (Node 22) et intégrable avec **ElizaOS** ou via une **API REST Express**.
+Infrastructure d'actions on-chain pour agents autonomes Solana, développée en Node.js / TypeScript (Node 22), intégrable avec **ElizaOS** ou exposée via une **API REST Express**.
 
 Elle fournit une couche d'abstraction standardisée entre l'intention d'un agent et l'exécution d'actions Solana, avec validation des paramètres, contrôles de risque et intégrations protocolaires.
 
@@ -8,11 +8,14 @@ Elle fournit une couche d'abstraction standardisée entre l'intention d'un agent
 
 ```mermaid
 graph TD
-    User([Utilisateur / Prompt]) --> Agent[ElizaOS Agent / Client HTTP]
-    Agent -->|Validation Zod & Intent| Skill[Solana Agent Skill Toolkit]
-    Skill -->|Execution Layer| Express[Serveur Express REST]
-    Skill -->|Plugin Contract| Eliza[Plugin ElizaOS]
-    Express & Eliza -->|Web3.js / Anchor| Protocols
+    User([Utilisateur / Prompt]) --> Client[Client HTTP / Agent AI]
+    subgraph Dual Surface[Dual Integration Surface]
+        Express[Serveur Express REST API]
+        Eliza[Plugin ElizaOS]
+    end
+    Client --> Express & Eliza
+    Express & Eliza -->|Validation Zod & Execution Layer| Skill[Solana Agent Skill Toolkit]
+    Skill -->|Web3.js / Anchor| Protocols
     subgraph Protocols[Écosystème Solana]
         Jupiter[Jupiter v6 / Perps]
         Drift[Drift Protocol]
@@ -21,7 +24,7 @@ graph TD
         Pump[Pump.fun / Raydium]
         Token[Token-2022 / cNFTs]
     end
-    Express & Eliza -->|RPC & Webhooks| RPC[Helius / QuickNode RPC]
+    Skill -->|RPC & Webhooks| RPC[Helius / QuickNode RPC]
 ```
 
 ## 🛡️ Security & Risk Controls
@@ -33,6 +36,8 @@ Mécanismes de validation et de contrôle d'exécution destinés à réduire les
 - **Interception des Erreurs RPC** : Captation globale des rejets réseau avec renvoi de messages structurés à l'agent.
 
 ## 🧪 13 Critical-Path Test Scenarios
+
+> **Validation Scope** : Les scénarios combinent tests unitaires, contractuels, simulations, fixtures et intégrations HTTP/API selon le module ; ils ne constituent pas une exécution Mainnet exhaustive de toutes les opérations.
 
 La suite de tests (`npm test`) couvre **13 scénarios critiques** sur les surfaces principales d'intégration et d'exécution :
 
@@ -76,7 +81,6 @@ import { pumpfunBuySchema } from "./tools.js";
 export const pumpfunBuyAction: Action = {
   name: "PUMPFUN_BUY",
   description: "Acheter des tokens sur Pump.fun via Solana Agent Skill",
-  simulated: true,
   validate: async (runtime: AgentRuntime, message: Memory) => true,
   handler: async (runtime: AgentRuntime, message: Memory, state?: State) => {
     // 1. Extraction et validation Zod
