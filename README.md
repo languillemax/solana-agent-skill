@@ -45,7 +45,7 @@ La suite de tests (`npm test`) couvre **13 scénarios critiques** répartis sur 
 | :--- | :--- | :--- | :---: |
 | **Core Specs** | Unit / Schema | Validation stricte des schémas d'entrée AI | Conforme |
 | **ElizaOS Plugin** | Structural Contract | Enregistrement correct des actions & handlers | Conforme |
-| **v1.1 Base** | Live API / Simulated RPC | Prix Jupiter Price v2 & simulation Staking Jito | Conforme |
+| **v1.1 Base** | Live API + RPC Simulation | Prix Jupiter Price v2 & simulation Staking Jito | Conforme |
 | **API REST** | E2E Integration | Serveur HTTP Express & validation des routes | Conforme |
 | **M1 : Launchpad & DEX** | Live HTTP API | Métadonnées Pump.fun & structure d'ordre Raydium | Conforme |
 | **M2 : Money Markets** | Calculator / Simulation | Taux Kamino/Marginfi & validation d'emprunt | Conforme |
