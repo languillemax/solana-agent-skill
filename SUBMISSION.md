@@ -4,7 +4,7 @@
 **Solana Agent Skill Toolkit**
 
 ## 📌 Description
-Infrastructure d'action et toolkit Node.js / TypeScript (Node 22) permettant aux agents autonomes (ElizaOS, bots, APIs HTTP) de déclencher des opérations Solana complexes de manière programmable et contrôlée.
+Infrastructure d'actions on-chain pour agents autonomes Solana, développée en Node.js / TypeScript (Node 22) et intégrable avec ElizaOS ou via une API REST Express. Elle fournit une couche d'abstraction standardisée entre l'intention d'un agent et l'exécution d'actions Solana, avec validation des paramètres, contrôles de risque et intégrations protocolaires.
 
 ## ✅ Checklist de Livraison Unifiée
 - [x] **Base v1.1.0** : Transfers SOL/SPL, Jupiter Swap v6, Staking Jito, Portfolio
@@ -14,7 +14,7 @@ Infrastructure d'action et toolkit Node.js / TypeScript (Node 22) permettant aux
 - [x] **Module 4 — Multisig & Blinks** : Squads v4 & Dialect Blinks
 - [x] **Module 5 — Signals & Webhooks** : Helius & QuickNode Events
 - [x] **Module 6 — Advanced Assets** : Token-2022 Extensions & Metaplex cNFTs
-- [x] **13 Critical-Path Scenarios** : Suite de tests validée via Node Test Runner (`npm test`)
+- [x] **13 Critical-Path Test Scenarios** : Suite de tests Node.js validée (`npm test`)
 - [x] **Dual Integration Surface** : Microservice REST Express + Plugin ElizaOS
 - [x] **CI/CD** : Workflow GitHub Actions (`.github/workflows/test.yml`)
-- [x] **Documentation Production** : README.md, diagramme Mermaid et spécifications API
+- [x] **Documentation Production-Ready** : README.md, diagramme Mermaid et spécifications API
