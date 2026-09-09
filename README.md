@@ -13,9 +13,11 @@ graph TD
         Express[Serveur Express REST API]
         Eliza[Plugin ElizaOS]
     end
-    Client --> Express & Eliza
-    Express & Eliza -->|Validation Zod & Execution Layer| Skill[Solana Agent Skill Toolkit]
-    Skill -->|Web3.js / Anchor| Protocols
+    Client --> Express
+    Client --> Eliza
+    Express --> Skill[Solana Agent Skill Toolkit]
+    Eliza --> Skill
+    Skill --> Protocols
     subgraph Protocols[Écosystème Solana]
         Jupiter[Jupiter v6 / Perps]
         Drift[Drift Protocol]
@@ -24,7 +26,7 @@ graph TD
         Pump[Pump.fun / Raydium]
         Token[Token-2022 / cNFTs]
     end
-    Skill -->|RPC & Webhooks| RPC[Helius / QuickNode RPC]
+    Skill --> RPC[Helius / QuickNode RPC]
 ```
 
 ## 🛡️ Security & Risk Controls
@@ -33,7 +35,7 @@ Mécanismes de validation et de contrôle d'exécution destinés à réduire les
 - **Strict Schema Validation (Zod)** : Filtrage strict de chaque paramètre généré par un LLM avant la construction de la transaction.
 - **Contrôle des Bornes & Slippage** : Protection contre les montants invalides, valeurs négatives et glissement excessif.
 - **Gestion Isolée des Clés** : Signature exclusive via variables d'environnement, aucun stockage de clé privée dans le code.
-- **Interception des Erreurs RPC** : Captation globale des rejets réseau avec renvoi de messages structurés à l'agent.
+- **Interception des Erreurs RPC** : Interception et normalisation des erreurs RPC avec renvoi de messages structurés à l'agent.
 
 ## 🧪 13 Critical-Path Test Scenarios
 
@@ -72,7 +74,7 @@ tests/
 
 ## 🔌 Structure d'une Action ElizaOS (Plugin Contract)
 
-*Exemple illustratif du contrat d'interface exposé à ElizaOS (l'implémentation de production embarque la couche d'exécution Solana Web3.js / Anchor) :*
+*Exemple illustratif du contrat d'interface exposed à ElizaOS (l'implémentation de production embarque la couche d'exécution Solana Web3.js / Anchor) :*
 
 ```typescript
 import { Action, AgentRuntime, Memory, State } from "@elizaos/core";
@@ -81,7 +83,10 @@ import { pumpfunBuySchema } from "./tools.js";
 export const pumpfunBuyAction: Action = {
   name: "PUMPFUN_BUY",
   description: "Acheter des tokens sur Pump.fun via Solana Agent Skill",
-  validate: async (runtime: AgentRuntime, message: Memory) => true,
+  validate: async (runtime: AgentRuntime, message: Memory) => {
+    // Validation contextuelle simplifiée pour l'exemple
+    return true;
+  },
   handler: async (runtime: AgentRuntime, message: Memory, state?: State) => {
     // 1. Extraction et validation Zod
     const params = pumpfunBuySchema.parse(message.content);

@@ -4,7 +4,7 @@
 **Solana Agent Skill Toolkit**
 
 ## 📌 Description
-Infrastructure d'actions on-chain pour agents autonomes Solana, développée en Node.js / TypeScript (Node 22) et intégrable avec ElizaOS ou via une API REST Express. Elle fournit une couche d'abstraction standardisée entre l'intention d'un agent et l'exécution d'actions Solana, avec validation des paramètres, contrôles de risque et intégrations protocolaires.
+Infrastructure d'actions on-chain pour agents autonomes Solana, développée en Node.js / TypeScript (Node 22), intégrable avec ElizaOS ou exposée via une API REST Express. Elle fournit une couche d'abstraction standardisée entre l'intention d'un agent et l'exécution d'actions Solana, avec validation des paramètres, contrôles de risque et intégrations protocolaires.
 
 ## ✅ Checklist de Livraison Unifiée
 - [x] **Base v1.1.0** : Transfers SOL/SPL, Jupiter Swap v6, Staking Jito, Portfolio
