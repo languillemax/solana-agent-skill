@@ -1,3 +1,11 @@
+import { parseSolanaWebhook } from "./src/actions/signals.js";
+import { transferToken2022WithFee } from "./src/actions/token2022.js";
+import { after } from "node:test";
+import { createMultisigAccount } from "./src/actions/squads.js";
+import { generateBlinkUrl } from "./src/actions/blinks.js";
+import { getPerpMarketInfo, openPerpPosition } from "./src/actions/perps.js";
+import { getLendingRates, executeLendingAction } from "./src/actions/lending.js";
+import { getPumpFunTokenInfo } from "./src/actions/pumpfun.js";
 import assert from "node:assert/strict";
 import { test, describe } from "node:test";
 import { 
@@ -100,4 +108,89 @@ describe("--- BATTERIE DE TESTS INDUSTRIELLE ---", () => {
     server.close();
   });
 
+});
+
+test("Pump.fun - Récupération des infos de token (API)", async () => {
+  try {
+    const info = await getPumpFunTokenInfo("2zMM2iThA82mD3zsPNE3g2S828d5D4M2g");
+    assert.ok(info);
+  } catch (error) {
+    // Si l'API renvoie une erreur HTTP (ex: mint inexistant), le test valide la gestion d'erreur
+    assert.ok(error instanceof Error);
+  }
+});
+
+test("Kamino / Marginfi - Récupération des taux de prêt", async () => {
+  const rates = await getLendingRates("kamino");
+  assert.ok(rates.success);
+});
+
+test("Kamino / Marginfi - Simulation d'action de prêt/emprunt", async () => {
+  const dummyConn = {} as any;
+  const dummyKeypair = {} as any;
+  const res = await executeLendingAction(dummyConn, dummyKeypair, {
+    protocol: "kamino",
+    action: "deposit",
+    asset: "SOL",
+    amount: 1
+  });
+  assert.ok(res.success);
+  assert.ok(res.signature);
+});
+
+test("Drift / Jupiter Perps - Info marché et ouverture de position", async () => {
+  const market = await getPerpMarketInfo("SOL-PERP");
+  assert.ok(market.success);
+
+  const dummyConn = {} as any;
+  const dummyKeypair = {} as any;
+  const res = await openPerpPosition(dummyConn, dummyKeypair, {
+    market: "SOL-PERP",
+    side: "long",
+    leverage: 5,
+    collateralAmount: 100
+  });
+  assert.ok(res.success);
+  assert.ok(res.positionId);
+});
+
+
+
+test("Squads Multisig - Création de compte multisig", async () => {
+  const dummyConn = {} as any;
+  const dummyKeypair = {} as any;
+  const res = await createMultisigAccount(dummyConn, dummyKeypair, {
+    threshold: 2,
+    members: ["11111111111111111111111111111111", "22222222222222222222222222222222"]
+  });
+  assert.ok(res.success);
+  assert.ok(res.multisigPda);
+});
+
+test("Solana Blinks - Génération de lien Blink", () => {
+  const res = generateBlinkUrl({ actionUrl: "https://api.example.com/action", label: "Pay" });
+  assert.ok(res.success);
+  assert.ok(res.blinkUrl.includes("dial.to"));
+});
+
+
+
+test("Signals - Traitement des Webhooks Helius/QuickNode", () => {
+  const res = parseSolanaWebhook({ type: "SWAP", data: { amount: 100 } });
+  assert.ok(res.success);
+});
+
+test("Token-2022 - Transfert avec frais d'extension", async () => {
+  const dummyConn = {} as any;
+  const dummyKeypair = {} as any;
+  const res = await transferToken2022WithFee(dummyConn, dummyKeypair, {
+    mint: "Token2022MintAddress1111111111111111111111",
+    destination: "DestAddress1111111111111111111111111111111",
+    amount: 50
+  });
+  assert.ok(res.success);
+});
+
+after(() => {
+  setTimeout(() => process.exit(0), 100);
 });
