@@ -26,11 +26,12 @@ test('T3N Adapter - Rejects actions exceeding risk limits', async () => {
   assert.strictEqual(res.error?.code, 'RISK_LIMIT_EXCEEDED');
 });
 
-test('T3N Adapter - Executes valid action through Simulation Gate', async () => {
+test('T3N Adapter - Authorizes action through Simulation Gate', async () => {
   const res = await t3nAdapter.executeAction({
     toolName: 'PUMPFUN_BUY',
     parameters: { mint: 'So11111111111111111111111111111111111111112', amountSol: 1, slippage: 1 }
   });
   assert.strictEqual(res.success, true);
-  assert.ok(res.data.executed);
+  assert.strictEqual(res.data?.executionAuthorized, true);
+  assert.strictEqual(res.data?.simulated, true);
 });

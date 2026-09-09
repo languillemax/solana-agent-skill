@@ -1,20 +1,26 @@
-import { SOLANA_AGENT_TOOLS, validateRiskLimits, simulateTransaction } from "./tools.js";
+import { SOLANA_AGENT_TOOLS, validateRiskLimits, simulateTransaction, RiskConfig } from "./tools.js";
 
 export interface T3NToolContext {
-  connection?: any;
-  wallet?: any;
-  riskConfig?: any;
+  connection?: unknown;
+  wallet?: unknown;
+  riskConfig?: Partial<RiskConfig>;
 }
 
 export interface T3NActionRequest {
   toolName: string;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
   context?: T3NToolContext;
 }
 
 export interface T3NActionResponse {
   success: boolean;
-  data?: any;
+  data?: {
+    executionAuthorized: boolean;
+    simulated: boolean;
+    tool: string;
+    parameters: Record<string, unknown>;
+    logs: string[];
+  };
   error?: {
     code: string;
     message: string;
@@ -22,7 +28,7 @@ export interface T3NActionResponse {
 }
 
 export class T3NAgentAdapter {
-  private tools = new Map<string, any>();
+  private tools = new Map<string, { name: string; description: string; schema: any }>();
 
   constructor() {
     SOLANA_AGENT_TOOLS.forEach(tool => {
@@ -56,7 +62,7 @@ export class T3NAgentAdapter {
     }
 
     // 2. Risk Guardrail
-    const riskCheck = validateRiskLimits(parsed.data, request.context?.riskConfig);
+    const riskCheck = validateRiskLimits(parsed.data, request.context?.riskConfig as RiskConfig);
     if (!riskCheck.valid) {
       return {
         success: false,
@@ -76,10 +82,11 @@ export class T3NAgentAdapter {
     return {
       success: true,
       data: {
-        executed: true,
+        executionAuthorized: true,
+        simulated: true,
         tool: request.toolName,
         parameters: parsed.data,
-        logs: simResult.logs
+        logs: simResult.logs || []
       }
     };
   }
