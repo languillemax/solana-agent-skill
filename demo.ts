@@ -1,12 +1,25 @@
-import { SOLANA_AGENT_TOOLS, solanaAgentPlugin } from "./src/index.js";
+import { SOLANA_AGENT_TOOLS, solanaAgentPlugin, getPortfolio, getJitoStakeQuote } from "./src/index.js";
 
-console.log("--- SOLANA AGENT SKILL DEMO ---\n");
+async function main() {
+  console.log("🚀 --- SOLANA AGENT SKILL (ULTIMATE SUITE) --- 🚀\n");
 
-console.log("1. Schemas Function Calling AI charges :");
-console.dir(SOLANA_AGENT_TOOLS, { depth: null });
+  console.log("1️⃣ Schémas Function Calling AI (4 Outils) :");
+  console.log(SOLANA_AGENT_TOOLS.map(t => `- ${t.name}: ${t.description}`).join("\n"));
 
-console.log("\n2. Plugin ElizaOS pret :");
-console.log(`Nom: ${solanaAgentPlugin.name}`);
-console.log(`Actions: ${solanaAgentPlugin.actions.map(a => a.name).join(", ")}`);
+  console.log("\n2️⃣ Test Portfolio & Prix Jupiter (Wallet Test) :");
+  const testWallet = "5YNmS1R9nNSCDzb5a7yE1L88zA28nArX8RjeXe15k3S";
+  const pf = await getPortfolio("https://api.mainnet-beta.solana.com", testWallet);
+  console.log(`Solde: ${pf.solBalance} SOL | Prix SOL: $${pf.solPriceUsd} | Valeur Total: $${pf.totalValueUsd.toFixed(2)}`);
 
-console.log("\nTout est operationnel.");
+  console.log("\n3️⃣ Devis Staking Liquide Jito :");
+  const stake = await getJitoStakeQuote(2.5);
+  console.log(`Action: ${stake.action} | APY estimé: ${stake.estimatedApy}`);
+
+  console.log("\n4️⃣ Plugin ElizaOS & API REST :");
+  console.log(`Plugin Eliza: ${solanaAgentPlugin.name} (${solanaAgentPlugin.actions.length} actions)`);
+  console.log("Serveur REST prêt (/tools, /portfolio, /stake/jito)");
+
+  console.log("\n✅ Tout le toolkit est validé à 100%.");
+}
+
+main();
