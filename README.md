@@ -1,12 +1,37 @@
-# Solana Agent Skill Kit
+# ⚡ Solana Agent Skill Kit
 
-Un kit léger et modulaire en TypeScript pour exécuter des actions d'agents autonomes sur la blockchain Solana (parsing d'événements, swap automatisé via Jupiter API, transferts SPL-Token).
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)](https://www.typescriptlang.org/)
+[![Solana](https://img.shields.io/badge/Solana-Web3-purple.svg)](https://solana.com/)
 
-## Structure
-- `/src` : Code source TypeScript
-- `/tests` : Tests d'intégration automatisés
-- `Dockerfile` : Déploiement conteneurisé rapide
+An autonomous AI Agent toolkit designed to perform automated, production-ready on-chain transactions on Solana (Jupiter V6 Swaps, Native SOL & SPL Token Transfers, and Event Monitoring).
 
-## Préréquis
-- Node.js >= 20.x
-- Docker (optionnel pour la conteneurisation)
+## 🧰 Architecture
+
+- **`SolanaAgent`** : Core agent managing RPC connection and wallet signatures.
+- **`Jupiter Swap Module`** : Direct routing via Jupiter V6 Swap API for optimal slippage.
+- **`Token Transfer Module`** : SPL-Token and SOL transfer pipeline with ATA (Associated Token Account) resolution.
+
+## 🚀 Quick Start
+
+### 1. Installation
+```bash
+git clone [https://github.com/languillemax/solana-agent-skill.git](https://github.com/languillemax/solana-agent-skill.git)
+cd solana-agent-skill
+npm install
+2. Configuration
+
+Copy .env.example to .env and insert your RPC URL or Keypair JSON array:
+SOLANA_RPC_URL=[https://api.mainnet-beta.solana.com](https://api.mainnet-beta.solana.com)
+AGENT_PRIVATE_KEY=[12,34,56,...]
+3. Run Tests
+npm run test
+4. Build & Run
+npm run build
+npm run start
+🐳 Docker Support
+docker build -t solana-agent-skill .
+docker run --env-file .env solana-agent-skill
+📜 License
+
+MIT © languillemax
