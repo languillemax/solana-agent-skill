@@ -8,7 +8,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
-    "test": "tsc --noEmit && npx tsx --test test_suite.ts"
+    "test": "tsc --noEmit && npx tsx --test test_suite.ts",
+    "prepublishOnly": "npm run build && npm test"
   },
   "keywords": [
     "solana",
@@ -31,5 +32,17 @@
     "@types/node": "^26.5.0",
     "tsx": "^4.23.13",
     "typescript": "^5.9.3"
-  }
+  },
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ]
 }
