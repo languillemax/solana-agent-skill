@@ -1,8 +1,8 @@
 # Solana Agent Skill Toolkit
 
-Toolkit Node.js / TypeScript (Node 22) open-source d'actions et d'outils Solana prêt pour **ElizaOS** et serveurs **Express REST API**. 
+Infrastructure d'action et toolkit Node.js / TypeScript (Node 22) open-source prêt pour **ElizaOS** et serveurs **Express REST API**.
 
-Il fournit une couche d'abstraction standardisée permettant à un agent autonome de déclencher des opérations Solana complexes de manière programmable et sécurisée.
+Il fournit une couche d'abstraction standardisée permettant à un agent autonome de déclencher des opérations Solana complexes de manière programmable.
 
 ## 🏗️ Architecture System
 
@@ -24,39 +24,64 @@ graph TD
     Express & Eliza -->|RPC & Webhooks| RPC[Helius / QuickNode RPC]
 ```
 
-## 🛡️ Modèle de Sécurité & Validation (Safety First)
+## 🛡️ Security & Risk Controls
 
-Pour prévenir tout comportement erratique d'un agent autonome sur le Mainnet :
-- **Strict Schema Validation (Zod)** : Chaque paramètre injecté par un LLM est validé par un schéma strict avant la construction de la transaction.
-- **Bornage du Slippage & Montants** : Protections contre les valeurs négatives ou aberrantes.
-- **Gestion Robuste des Clés** : Séparation stricte des clés privées via variables d'environnement, aucune clé stockée en dur.
-- **Fallback & Error Catching** : Interception globale des erreurs RPC et retour de messages d'erreur explicites à l'agent sans crash du processus.
+Mécanismes de validation et de contrôle d'exécution visant à réduire les risques d'instructions invalides ou de paramètres hors-bornes avant soumission de transaction :
+- **Strict Schema Validation (Zod)** : Chaque paramètre généré par un LLM est filtré par un schéma strict avant la construction de la transaction.
+- **Contrôle des Bornes & Slippage** : Protections contre les valeurs négatives, aberrantes ou un glissement excessif.
+- **Gestion Isolée des Clés** : Utilisation exclusive des variables d'environnement pour la signature, aucune clé stockée en dur.
+- **Gestion des Erreurs RPC** : Interception globale des échecs de diffusion et transmission de messages d'erreur explicites à l'agent.
 
-## 🧪 Matrice des Modules & Couverture des Tests
+## 🧪 13 Critical-Path Scenarios & Test Suite
 
-La suite de tests (`npm test`) valide **13 scénarios critiques** répartis en 5 catégories :
+La suite de tests (`npm test`) couvre **13 scénarios critiques** en précisant la nature exacte de chaque vérification :
 
-| Module / Catégorie | Type de Test | Portée du Test | Statut |
+| Scénario / Module | Nature du Test | Portée du Test | Statut |
 | :--- | :--- | :--- | :---: |
-| **Core & Function Calling** | Unitaire / Schema | Validation stricte des spécifications Zod/AI | Validé |
-| **ElizaOS Plugin** | Contrat | Enregistrement des actions et handlers ElizaOS | Validé |
-| **v1.1 Base & Staking** | Intégration Live | Jupiter Price v2 API, Portfolio & Liquid Staking Jito | Validé |
-| **API REST Microservice** | E2E HTTP | Serveur HTTP réel, endpoints Express & Payloads | Validé |
-| **M1 : Launchpad & DEX** | API Integration | Pump.fun token info & Raydium AMM | Validé |
-| **M2 : Money Markets** | Simulation / API | Taux Kamino/Marginfi & simulation d'emprunt | Validé |
-| **M3 : Perps & Levier** | Unit / Contract | Drift / Jupiter Perps market info & position leverage | Validé |
-| **M4 : Multisig & Blinks** | Unit / Contract | Squads v4 multisig creation & Dialect Blink URLs | Validé |
-| **M5 : Signals & Webhooks**| Integration | Traitement des webhooks transactionnels Helius/QuickNode | Validé |
-| **M6 : Advanced Assets** | Unit / Contract | Token-2022 extensions (Transfer Tax) & cNFTs | Validé |
+| **Core & Function Calling** | Unitaire (Schema Zod) | Validation stricte des spécifications AI | Validé |
+| **ElizaOS Plugin** | Contrat Structurel | Enregistrement des actions et handlers ElizaOS | Validé |
+| **v1.1 Base & Staking** | Live API / Simulated RPC | API Jupiter Price v2 & simulation Staking Jito | Validé |
+| **API REST Microservice** | E2E Integration | Serveur HTTP réel Express & endpoints REST | Validé |
+| **M1 : Launchpad & DEX** | Live HTTP API | Métadonnées Pump.fun API & spec Raydium AMM | Validé |
+| **M2 : Money Markets** | Simulation / Calculator | Calculateur de taux Kamino/Marginfi & emprunt | Validé |
+| **M3 : Perps & Levier** | Contract Simulation | Paramètres Drift / Jupiter Perps & levier | Validé |
+| **M4 : Multisig & Blinks** | Logic & URL Spec | Création Squads v4 & liens Dialect Blinks | Validé |
+| **M5 : Signals & Webhooks**| Fixture Replay | Traitement des payloads d'événements Helius | Validé |
+| **M6 : Advanced Assets** | Logic / Spec Test | Extensions Token-2022 (Transfer Tax) & cNFTs | Validé |
 
-## 🌐 Endpoints REST API — Preuves d'Exécution par Module
+## 🔌 Structure d'une Action ElizaOS (Plugin Contract)
+
+Exemple concret du contrat d'interface exposant une action au moteur ElizaOS :
+
+```typescript
+import { Action, AgentRuntime, Memory, State } from "@elizaos/core";
+import { pumpfunBuySchema } from "./tools.js";
+
+export const pumpfunBuyAction: Action = {
+  name: "PUMPFUN_BUY",
+  description: "Acheter des tokens sur Pump.fun via Solana Agent Skill",
+  simulated: true,
+  validate: async (runtime: AgentRuntime, message: Memory) => {
+    return true; // Validation du contexte agent
+  },
+  handler: async (runtime: AgentRuntime, message: Memory, state?: State) => {
+    // 1. Extraction et validation Zod
+    const params = pumpfunBuySchema.parse(message.content);
+    // 2. Exécution via la couche d'action Solana
+    return { success: true, action: "PUMPFUN_BUY", params };
+  },
+  examples: []
+};
+```
+
+## 🌐 Endpoints REST API — Exemples d'Appels Microservice
 
 Démarrage du serveur REST :
 ```bash
 npm start
 ```
 
-### Module 1 : Launchpad & DEX (Pump.fun / Raydium)
+### Module 1 : Launchpad & DEX (Pump.fun)
 ```bash
 curl -X POST http://localhost:3000/api/solana/pumpfun/buy \
   -H "Content-Type: application/json" \
@@ -77,7 +102,7 @@ curl -X POST http://localhost:3000/api/solana/perps/open \
   -d '{"market": "SOL-PERP", "side": "long", "amount": 1, "leverage": 2}'
 ```
 
-### Module 4 : Multisig Squads v4 & Blinks
+### Module 4 : Multisig Squads v4
 ```bash
 curl -X POST http://localhost:3000/api/solana/squads/create \
   -H "Content-Type: application/json" \
@@ -98,15 +123,17 @@ curl -X POST http://localhost:3000/api/solana/token2022/transfer \
   -d '{"mint": "4k3Dyj...", "destination": "83bd3y4...", "amount": 100, "fee": 1}'
 ```
 
-## 🤖 Exemple de Trace d'Exécution Agent (ElizaOS)
+## 🤖 Exemple de Flux d'Exécution Agent (Conceptuel)
+
+*(Schéma explicatif du traitement d'une requête par l'agent)*
 
 ```
-User Prompt: "Achète pour 0.1 SOL du token Pump.fun 2zMMhcB..."
-├── 1. Agent Intent Detection -> Matching Action: "PUMPFUN_BUY"
-├── 2. Validation Zod Schema -> Params: { mint: "2zMMhcB...", amountSol: 0.1 }
-├── 3. Tool Execution -> Construction de la transaction Solana Web3.js
-├── 4. Simulation & Sign -> Transaction signée via Keypair
-└── 5. Result -> Output: { success: true, txHash: "4vN8sX..." }
+User Prompt: "Achète pour 0.05 SOL du token Pump.fun <MINT_ADDRESS>"
+├── 1. Intent Detection -> Match Action: "PUMPFUN_BUY"
+├── 2. Zod Schema Validation -> Params: { mint: "<MINT_ADDRESS>", amountSol: 0.05 }
+├── 3. Tool Execution -> Construction de l'instruction Solana Web3.js
+├── 4. Simulation & Signature -> Signature via la Keypair de l'agent
+└── 5. Result -> Output JSON: { success: true, status: "executed" }
 ```
 
 ## 🧪 Lancer la Batterie de Tests
