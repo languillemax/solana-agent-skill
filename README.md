@@ -1,4 +1,4 @@
-# Solana Agent Skill (v1.1.0)
+# Solana Agent Skill (v1.1.0) ![CI Test Suite](https://github.com/languillemax/solana-agent-skill/actions/workflows/test.yml/badge.svg)
 
 > Industrial-grade, modular Solana execution skill & REST microservice for AI Agents (ElizaOS, LangChain, AutoGen, Vercel AI SDK).
 
@@ -10,11 +10,11 @@
 - **LLM Function Calling Specs**: Pre-formatted JSON schemas for OpenAI, Ollama, and Anthropic.
 - **REST API Microservice**: Endpoint support (`/tools`, `/portfolio`, `/stake/jito`) for non-JS agents.
 
-## Quick Start
+## Verification & Testing
 ```bash
 npm install
 npm run build
+npm test
 npx tsx demo.ts
 REST API Server
-# Start microservice on port 3000
 npx tsx -e 'import { startServer } from "./src/index.js"; startServer();'
