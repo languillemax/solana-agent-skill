@@ -1,94 +1,116 @@
 # Solana Agent Skill Toolkit
 
-Toolkit Node.js / TypeScript open-source d'actions et d'outils Solana prêt pour **ElizaOS** et serveurs **Express REST API**. Conçu pour alimenter des agents autonomes avec la gestion du DeFi, des tokens v2, cNFTs, Perps, Blinks, Webhooks, et Multisig.
+Toolkit Node.js / TypeScript (Node 22) open-source d'actions et d'outils Solana prêt pour **ElizaOS** et serveurs **Express REST API**. 
 
-## 🏗️ Architecture
+Il fournit une couche d'abstraction standardisée permettant à un agent autonome de déclencher des opérations Solana complexes de manière programmable et sécurisée.
+
+## 🏗️ Architecture System
 
 ```mermaid
 graph TD
-    A[ElizaOS Agent / Client HTTP] -->|Utilise| B[Solana Agent Skill Toolkit]
-    B -->|Actions / Tools| C[Solana Web3.js / Anchor]
-    B -->|REST Endpoints| D[Serveur Express]
-    C -->|RPC & Indexers| E[Solana Mainnet / Helius / QuickNode]
-    C -->|Protocols| F[Jupiter / Drift / Kamino / Marginfi / Squads / Pump.fun / Dialect]
+    User([Utilisateur / Prompt]) --> Agent[ElizaOS Agent / Client HTTP]
+    Agent -->|Validation Zod & Intent| Skill[Solana Agent Skill Toolkit]
+    Skill -->|Execution Layer| Express[Serveur Express REST]
+    Skill -->|Plugin Contract| Eliza[Plugin ElizaOS]
+    Express & Eliza -->|Web3.js / Anchor| Protocols
+    subgraph Protocols[Écosystème Solana]
+        Jupiter[Jupiter v6 / Perps]
+        Drift[Drift Protocol]
+        Kamino[Kamino / Marginfi]
+        Squads[Squads Multisig v4]
+        Pump[Pump.fun / Raydium]
+        Token[Token-2022 / cNFTs]
+    end
+    Express & Eliza -->|RPC & Webhooks| RPC[Helius / QuickNode RPC]
 ```
 
-## 🚀 Fonctionnalités & Matrice des Modules
+## 🛡️ Modèle de Sécurité & Validation (Safety First)
 
-| Module | Intégrations / Protocoles | Actions / Capacités |
-| :--- | :--- | :--- |
-| **v1.1 Base** | Web3.js, Jupiter, Jito | Transfert SOL/SPL, Jupiter Swap, Staking Jito, Portefeuille |
-| **M1 : Launchpad & DEX** | Pump.fun, Raydium | Minting/Trading Pump.fun, AMM Raydium |
-| **M2 : Money Markets** | Kamino, Marginfi | Dépôt/Emprunt Lending / Borrowing, Liquidation risk check |
-| **M3 : Perps & Levier** | Drift, Jupiter Perps | Positions Long/Short à levier, gestion du PnL / Collateral |
-| **M4 : Multisig & Blinks** | Squads v4, Dialect | Création/Validation de propositions Squads, Solana Blinks |
-| **M5 : Signals & Webhooks**| Helius, QuickNode | Traitement d'événements On-chain, Webhooks transactionnels |
-| **M6 : Advanced Assets** | Token-2022, Metaplex | Extensions Token-2022 (Transfer Tax, Transfer Hook), cNFTs |
+Pour prévenir tout comportement erratique d'un agent autonome sur le Mainnet :
+- **Strict Schema Validation (Zod)** : Chaque paramètre injecté par un LLM est validé par un schéma strict avant la construction de la transaction.
+- **Bornage du Slippage & Montants** : Protections contre les valeurs négatives ou aberrantes.
+- **Gestion Robuste des Clés** : Séparation stricte des clés privées via variables d'environnement, aucune clé stockée en dur.
+- **Fallback & Error Catching** : Interception globale des erreurs RPC et retour de messages d'erreur explicites à l'agent sans crash du processus.
 
-## 🛠️ Installation & Configuration
+## 🧪 Matrice des Modules & Couverture des Tests
 
-### 1. Prérequis
-- Node.js 22+
-- Clé privée Solana (format Base58)
+La suite de tests (`npm test`) valide **13 scénarios critiques** répartis en 5 catégories :
 
-### 2. Installation
-```bash
-npm install
-npm run build
-```
+| Module / Catégorie | Type de Test | Portée du Test | Statut |
+| :--- | :--- | :--- | :---: |
+| **Core & Function Calling** | Unitaire / Schema | Validation stricte des spécifications Zod/AI | Validé |
+| **ElizaOS Plugin** | Contrat | Enregistrement des actions et handlers ElizaOS | Validé |
+| **v1.1 Base & Staking** | Intégration Live | Jupiter Price v2 API, Portfolio & Liquid Staking Jito | Validé |
+| **API REST Microservice** | E2E HTTP | Serveur HTTP réel, endpoints Express & Payloads | Validé |
+| **M1 : Launchpad & DEX** | API Integration | Pump.fun token info & Raydium AMM | Validé |
+| **M2 : Money Markets** | Simulation / API | Taux Kamino/Marginfi & simulation d'emprunt | Validé |
+| **M3 : Perps & Levier** | Unit / Contract | Drift / Jupiter Perps market info & position leverage | Validé |
+| **M4 : Multisig & Blinks** | Unit / Contract | Squads v4 multisig creation & Dialect Blink URLs | Validé |
+| **M5 : Signals & Webhooks**| Integration | Traitement des webhooks transactionnels Helius/QuickNode | Validé |
+| **M6 : Advanced Assets** | Unit / Contract | Token-2022 extensions (Transfer Tax) & cNFTs | Validé |
 
-### 3. Variables d'environnement
-Copier `.env.example` en `.env` et ajuster vos clés :
-```bash
-cp .env.example .env
-```
-
-## 🌐 Serveur REST API (Express)
+## 🌐 Endpoints REST API — Preuves d'Exécution par Module
 
 Démarrage du serveur REST :
 ```bash
 npm start
 ```
 
-### Exemples d'appels cURL
-
-#### 1. Transfert SOL
+### Module 1 : Launchpad & DEX (Pump.fun / Raydium)
 ```bash
-curl -X POST http://localhost:3000/api/solana/transfer \
+curl -X POST http://localhost:3000/api/solana/pumpfun/buy \
   -H "Content-Type: application/json" \
-  -d '{"to": "83bd3y4...", "amount": 0.1}'
+  -d '{"mint": "2zMMhcB612z73mB52v6dGdb655752t22", "amountSol": 0.05, "slippage": 1}'
 ```
 
-#### 2. Jupiter Swap
+### Module 2 : Money Markets (Kamino / Marginfi)
 ```bash
-curl -X POST http://localhost:3000/api/solana/swap \
+curl -X POST http://localhost:3000/api/solana/lending/deposit \
   -H "Content-Type: application/json" \
-  -d '{"inputMint": "So11111111111111111111111111111111111111112", "outputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "amount": 100000000}'
+  -d '{"protocol": "kamino", "asset": "USDC", "amount": 50}'
 ```
 
-#### 3. Drift Perps Long Position
+### Module 3 : Perps & Levier (Drift / Jupiter Perps)
 ```bash
 curl -X POST http://localhost:3000/api/solana/perps/open \
   -H "Content-Type: application/json" \
   -d '{"market": "SOL-PERP", "side": "long", "amount": 1, "leverage": 2}'
 ```
 
-## 🤖 Intégration ElizaOS
-
-Importer le plugin directement dans l'initialisation de votre agent ElizaOS :
-
-```typescript
-import { solanaAgentPlugin } from "solana-agent-skill";
-import { AgentRuntime } from "@elizaos/core";
-
-const runtime = new AgentRuntime({
-  plugins: [solanaAgentPlugin],
-});
+### Module 4 : Multisig Squads v4 & Blinks
+```bash
+curl -X POST http://localhost:3000/api/solana/squads/create \
+  -H "Content-Type: application/json" \
+  -d '{"threshold": 2, "members": ["83bd3y4...", "5Q544f..."]}'
 ```
 
-## 🧪 Exécution des Tests
+### Module 5 : Signals & Webhooks (Helius)
+```bash
+curl -X POST http://localhost:3000/api/solana/webhook/helius \
+  -H "Content-Type: application/json" \
+  -d '{"type": "TRANSFER", "signature": "5Kn...", "accountData": []}'
+```
 
-Lancement de la suite de tests unitaires et d'intégration :
+### Module 6 : Token-2022 Extensions
+```bash
+curl -X POST http://localhost:3000/api/solana/token2022/transfer \
+  -H "Content-Type: application/json" \
+  -d '{"mint": "4k3Dyj...", "destination": "83bd3y4...", "amount": 100, "fee": 1}'
+```
+
+## 🤖 Exemple de Trace d'Exécution Agent (ElizaOS)
+
+```
+User Prompt: "Achète pour 0.1 SOL du token Pump.fun 2zMMhcB..."
+├── 1. Agent Intent Detection -> Matching Action: "PUMPFUN_BUY"
+├── 2. Validation Zod Schema -> Params: { mint: "2zMMhcB...", amountSol: 0.1 }
+├── 3. Tool Execution -> Construction de la transaction Solana Web3.js
+├── 4. Simulation & Sign -> Transaction signée via Keypair
+└── 5. Result -> Output: { success: true, txHash: "4vN8sX..." }
+```
+
+## 🧪 Lancer la Batterie de Tests
+
 ```bash
 npm test
 ```
