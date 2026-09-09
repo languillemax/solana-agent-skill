@@ -74,7 +74,7 @@ tests/
 
 ## 🔌 Structure d'une Action ElizaOS (Plugin Contract)
 
-*Exemple illustratif du contrat d'interface exposed à ElizaOS (l'implémentation de production embarque la couche d'exécution Solana Web3.js / Anchor) :*
+*Exemple illustratif du contrat d'interface exposé à ElizaOS (l'implémentation de production embarque la couche d'exécution Solana Web3.js / Anchor) :*
 
 ```typescript
 import { Action, AgentRuntime, Memory, State } from "@elizaos/core";
