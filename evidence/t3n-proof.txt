@@ -1,0 +1,313 @@
+=== COMMIT ===
+24a6f53f447447c14948cd629b6e0be7a397abda
+
+=== TESTS ===
+
+> solana-agent-skill@1.0.0 test
+> tsc --noEmit && npx tsx --test tests/*.test.ts
+
+TAP version 13
+# ◇ injected env (3) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+# Subtest: API Security - execution disabled when API key is not configured
+ok 1 - API Security - execution disabled when API key is not configured
+  ---
+  duration_ms: 43.687696
+  type: 'test'
+  ...
+# Subtest: API Security - invalid bearer token is rejected
+ok 2 - API Security - invalid bearer token is rejected
+  ---
+  duration_ms: 6.521554
+  type: 'test'
+  ...
+# Subtest: API Security - privateKey injection is rejected
+ok 3 - API Security - privateKey injection is rejected
+  ---
+  duration_ms: 5.904646
+  type: 'test'
+  ...
+# Subtest: API Security - rpcUrl injection is rejected
+ok 4 - API Security - rpcUrl injection is rejected
+  ---
+  duration_ms: 3.865751
+  type: 'test'
+  ...
+# Subtest: API Security - authenticated execution requires configured signer
+ok 5 - API Security - authenticated execution requires configured signer
+  ---
+  duration_ms: 5.501057
+  type: 'test'
+  ...
+# ◇ injected env (3) from .env // tip: ⌘ suppress logs { quiet: true }
+# Subtest: API T3N Gate - rejected T3N identity blocks execution before signer
+ok 6 - API T3N Gate - rejected T3N identity blocks execution before signer
+  ---
+  duration_ms: 44.832164
+  type: 'test'
+  ...
+# Subtest: API T3N Gate - approved DID reaches signer boundary
+ok 7 - API T3N Gate - approved DID reaches signer boundary
+  ---
+  duration_ms: 8.056691
+  type: 'test'
+  ...
+# Subtest: API - Express REST Endpoint Routing
+ok 8 - API - Express REST Endpoint Routing
+  ---
+  duration_ms: 0.904078
+  type: 'test'
+  ...
+# Subtest: API - Structured 400 Bad Request Payload
+ok 9 - API - Structured 400 Bad Request Payload
+  ---
+  duration_ms: 0.25457
+  type: 'test'
+  ...
+# Subtest: Base - Jito Liquid Staking Logic
+ok 10 - Base - Jito Liquid Staking Logic
+  ---
+  duration_ms: 0.839238
+  type: 'test'
+  ...
+# Subtest: Base - Jupiter Price API Live Integration
+ok 11 - Base - Jupiter Price API Live Integration
+  ---
+  duration_ms: 57.570573
+  type: 'test'
+  ...
+# Subtest: Base - Simulation Gate Abort on Failure
+ok 12 - Base - Simulation Gate Abort on Failure
+  ---
+  duration_ms: 0.374399
+  type: 'test'
+  ...
+# Subtest: Core - Schema Zod (Happy Path)
+ok 13 - Core - Schema Zod (Happy Path)
+  ---
+  duration_ms: 2.061855
+  type: 'test'
+  ...
+# Subtest: Core - Schema Zod (Negative: Negative Amount & Invalid Leverage)
+ok 14 - Core - Schema Zod (Negative: Negative Amount & Invalid Leverage)
+  ---
+  duration_ms: 1.277877
+  type: 'test'
+  ...
+# Subtest: Core - Risk Engine (Gate Check)
+ok 15 - Core - Risk Engine (Gate Check)
+  ---
+  duration_ms: 0.22025
+  type: 'test'
+  ...
+# Subtest: ElizaOS - Plugin Action Registration
+ok 16 - ElizaOS - Plugin Action Registration
+  ---
+  duration_ms: 0.968308
+  type: 'test'
+  ...
+# Subtest: ElizaOS - Action Execution Failure Handling
+ok 17 - ElizaOS - Action Execution Failure Handling
+  ---
+  duration_ms: 0.291629
+  type: 'test'
+  ...
+# Subtest: Module 1 - Pump.fun Info Retrieval
+ok 18 - Module 1 - Pump.fun Info Retrieval
+  ---
+  duration_ms: 0.883118
+  type: 'test'
+  ...
+# Subtest: Module 1 - Slippage Protection Reject
+ok 19 - Module 1 - Slippage Protection Reject
+  ---
+  duration_ms: 2.327424
+  type: 'test'
+  ...
+# Subtest: Module 2 - Kamino / Marginfi Rate Fetching
+ok 20 - Module 2 - Kamino / Marginfi Rate Fetching
+  ---
+  duration_ms: 0.878068
+  type: 'test'
+  ...
+# Subtest: Module 2 - Borrow Negative Amount Rejection
+ok 21 - Module 2 - Borrow Negative Amount Rejection
+  ---
+  duration_ms: 2.088945
+  type: 'test'
+  ...
+# Subtest: Module 3 - Drift / Jupiter Perps Position Opening
+ok 22 - Module 3 - Drift / Jupiter Perps Position Opening
+  ---
+  duration_ms: 0.719059
+  type: 'test'
+  ...
+# Subtest: Module 3 - Max Leverage Guard Enforcement
+ok 23 - Module 3 - Max Leverage Guard Enforcement
+  ---
+  duration_ms: 0.303049
+  type: 'test'
+  ...
+# Subtest: Module 4 - Squads Multisig Creation
+ok 24 - Module 4 - Squads Multisig Creation
+  ---
+  duration_ms: 0.908558
+  type: 'test'
+  ...
+# Subtest: Module 4 - Threshold Exceeding Members Guard
+ok 25 - Module 4 - Threshold Exceeding Members Guard
+  ---
+  duration_ms: 0.407709
+  type: 'test'
+  ...
+# Subtest: Module 5 - Helius Webhook Processing
+ok 26 - Module 5 - Helius Webhook Processing
+  ---
+  duration_ms: 0.670049
+  type: 'test'
+  ...
+# Subtest: Module 5 - Malformed Webhook Payload Rejection
+ok 27 - Module 5 - Malformed Webhook Payload Rejection
+  ---
+  duration_ms: 0.289389
+  type: 'test'
+  ...
+# Subtest: Module 6 - Token-2022 Transfer Fee Calculation
+ok 28 - Module 6 - Token-2022 Transfer Fee Calculation
+  ---
+  duration_ms: 0.819109
+  type: 'test'
+  ...
+# Subtest: Module 6 - Zero Destination Address Rejection
+ok 29 - Module 6 - Zero Destination Address Rejection
+  ---
+  duration_ms: 0.278489
+  type: 'test'
+  ...
+# Subtest: Simulation Contract - lending never exposes fake transaction signature
+ok 30 - Simulation Contract - lending never exposes fake transaction signature
+  ---
+  duration_ms: 0.751489
+  type: 'test'
+  ...
+# Subtest: Simulation Contract - perps never exposes fake transaction signature
+ok 31 - Simulation Contract - perps never exposes fake transaction signature
+  ---
+  duration_ms: 0.186559
+  type: 'test'
+  ...
+# Subtest: Simulation Contract - Squads preview rejects invalid threshold
+ok 32 - Simulation Contract - Squads preview rejects invalid threshold
+  ---
+  duration_ms: 0.496579
+  type: 'test'
+  ...
+# Subtest: Simulation Contract - Token2022 never exposes fake transaction signature
+ok 33 - Simulation Contract - Token2022 never exposes fake transaction signature
+  ---
+  duration_ms: 0.2304
+  type: 'test'
+  ...
+# Subtest: T3N Gate - rejects unauthenticated state
+ok 34 - T3N Gate - rejects unauthenticated state
+  ---
+  duration_ms: 0.695408
+  type: 'test'
+  ...
+# Subtest: T3N Gate - approves authenticated DID
+ok 35 - T3N Gate - approves authenticated DID
+  ---
+  duration_ms: 0.207299
+  type: 'test'
+  ...
+# Subtest: T3N Live - missing API key fails closed without network call
+ok 36 - T3N Live - missing API key fails closed without network call
+  ---
+  duration_ms: 0.736848
+  type: 'test'
+  ...
+# Subtest: T3N Live - sandbox is the safe default
+ok 37 - T3N Live - sandbox is the safe default
+  ---
+  duration_ms: 0.19412
+  type: 'test'
+  ...
+# Subtest: T3N Adapter - Exposes available tools
+ok 38 - T3N Adapter - Exposes available tools
+  ---
+  duration_ms: 0.732828
+  type: 'test'
+  ...
+# Subtest: T3N Adapter - Rejects invalid parameters via Zod
+ok 39 - T3N Adapter - Rejects invalid parameters via Zod
+  ---
+  duration_ms: 1.949596
+  type: 'test'
+  ...
+# Subtest: T3N Adapter - Rejects actions exceeding risk limits
+ok 40 - T3N Adapter - Rejects actions exceeding risk limits
+  ---
+  duration_ms: 0.400619
+  type: 'test'
+  ...
+# Subtest: T3N Adapter - Partial risk config preserves default limits
+ok 41 - T3N Adapter - Partial risk config preserves default limits
+  ---
+  duration_ms: 0.195769
+  type: 'test'
+  ...
+# Subtest: T3N Adapter - Logical gate is not mislabeled as on-chain simulation
+ok 42 - T3N Adapter - Logical gate is not mislabeled as on-chain simulation
+  ---
+  duration_ms: 0.288329
+  type: 'test'
+  ...
+1..42
+# tests 42
+# suites 0
+# pass 42
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 989.986681
+
+=== T3N POLICY ===
+
+> solana-agent-skill@1.0.0 t3n:authorize-smoke
+> tsx src/t3n-authorize-session-smoke.ts
+
+{"authorized":true,"action":"SOL_TRANSFER","reason":null,"max_amount_sol":5.0,"max_slippage_bps":100}
+
+=== T3N DELEGATION ===
+
+> solana-agent-skill@1.0.0 t3n:delegation-check
+> tsx src/t3n-delegation-check.ts
+
+{
+  "environment": "sandbox",
+  "contract": "z:d5766c6bd809c2dcae45d03753a26bc94891614e:solana-guard",
+  "function": "authorize-solana-action",
+  "result": {
+    "authorised": true,
+    "disclosed": true,
+    "satisfied": [
+      {
+        "grant": "member_delegation",
+        "contract": "z:d5766c6bd809c2dcae45d03753a26bc94891614e:solana-guard",
+        "functions": [
+          "authorize-solana-action"
+        ],
+        "scopes": []
+      },
+      {
+        "grant": "org_delegation",
+        "contract": "z:d5766c6bd809c2dcae45d03753a26bc94891614e:solana-guard",
+        "functions": [
+          "authorize-solana-action"
+        ],
+        "scopes": []
+      }
+    ],
+    "missing": []
+  }
+}
