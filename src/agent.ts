@@ -1,29 +1,53 @@
-import { Connection, Keypair, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
-import dotenv from 'dotenv';
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  LAMPORTS_PER_SOL,
+} from "@solana/web3.js";
+import dotenv from "dotenv";
+import { loadAgentSigner } from "./security/signer.js";
 
 dotenv.config();
 
 export class SolanaAgent {
-  public connection: Connection;
-  public keypair: Keypair | null = null;
+  public readonly connection: Connection;
+  private readonly signer: Keypair | null;
 
   constructor(rpcUrl?: string) {
-    const url = rpcUrl || process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
-    this.connection = new Connection(url, 'confirmed');
+    const url =
+      rpcUrl ||
+      process.env.SOLANA_RPC_URL ||
+      "https://api.mainnet-beta.solana.com";
 
-    if (process.env.AGENT_PRIVATE_KEY) {
-      try {
-        const secretKey = Uint8Array.from(JSON.parse(process.env.AGENT_PRIVATE_KEY));
-        this.keypair = Keypair.fromSecretKey(secretKey);
-      } catch (e) {
-        console.warn("⚠️ AGENT_PRIVATE_KEY invalide ou absente. Mode lecture seule actif.");
-      }
+    this.connection = new Connection(url, "confirmed");
+    this.signer = loadAgentSigner();
+  }
+
+  public isReadOnly(): boolean {
+    return this.signer === null;
+  }
+
+  public getPublicKey(): PublicKey | null {
+    return this.signer?.publicKey ?? null;
+  }
+
+  public requireSigner(): Keypair {
+    if (!this.signer) {
+      throw new Error(
+        "READ_ONLY_MODE: AGENT_PRIVATE_KEY is required for transaction execution",
+      );
     }
+
+    return this.signer;
   }
 
   async getBalance(pubkey?: PublicKey): Promise<number> {
-    const target = pubkey || this.keypair?.publicKey;
-    if (!target) throw new Error("Aucune clé publique spécifiée.");
+    const target = pubkey || this.signer?.publicKey;
+
+    if (!target) {
+      throw new Error("Aucune clé publique spécifiée.");
+    }
+
     const balance = await this.connection.getBalance(target);
     return balance / LAMPORTS_PER_SOL;
   }

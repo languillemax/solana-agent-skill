@@ -11,58 +11,87 @@ export interface PerpPositionParams {
 
 export interface PerpActionResult {
   success: boolean;
+  executionMode: "simulation";
   positionId?: string;
-  signature?: string;
+  simulationId?: string;
   error?: string;
 }
 
-export async function getPerpMarketInfo(market: string = "SOL-PERP"): Promise<any> {
+export async function getPerpMarketInfo(
+  market: string = "SOL-PERP",
+): Promise<any> {
   try {
     return {
       success: true,
       market,
-      oraclePrice: 185.50,
+      oraclePrice: 185.5,
       fundingRate24h: 0.00012,
       openInterest: 12500000,
-      maxLeverage: 20
+      maxLeverage: 20,
+      dataMode: "mock",
     };
-  } catch (error: any) {
-    return { success: false, error: error.message || String(error) };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : String(error),
+    };
   }
 }
 
+/**
+ * Preview-only adapter.
+ *
+ * No Drift/Jupiter Perps transaction is built, signed or broadcast here.
+ */
 export async function openPerpPosition(
-  connection: Connection,
-  payer: Keypair,
-  params: PerpPositionParams
+  _connection: Connection,
+  _payer: Keypair,
+  params: PerpPositionParams,
 ): Promise<PerpActionResult> {
-  try {
-    if (!params.market || !params.collateralAmount || params.collateralAmount <= 0) {
-      return { success: false, error: "Paramètres de position invalides" };
-    }
+  if (
+    !params.market ||
+    !Number.isFinite(params.collateralAmount) ||
+    params.collateralAmount <= 0
+  ) {
     return {
-      success: true,
-      positionId: "perp_pos_" + Math.random().toString(36).substring(7),
-      signature: "simulated_perp_tx_" + Date.now()
+      success: false,
+      executionMode: "simulation",
+      error: "INVALID_PARAMETERS",
     };
-  } catch (error: any) {
-    return { success: false, error: error.message || String(error) };
   }
+
+  return {
+    success: true,
+    executionMode: "simulation",
+    positionId:
+      "perp_preview_" +
+      Math.random().toString(36).substring(7),
+    simulationId:
+      "perp_open_preview_" + Date.now(),
+  };
 }
 
 export async function closePerpPosition(
-  connection: Connection,
-  payer: Keypair,
-  positionId: string
+  _connection: Connection,
+  _payer: Keypair,
+  positionId: string,
 ): Promise<PerpActionResult> {
-  try {
-    if (!positionId) return { success: false, error: "positionId requis" };
+  if (!positionId) {
     return {
-      success: true,
-      positionId,
-      signature: "simulated_close_perp_tx_" + Date.now()
+      success: false,
+      executionMode: "simulation",
+      error: "POSITION_ID_REQUIRED",
     };
-  } catch (error: any) {
-    return { success: false, error: error.message || String(error) };
   }
+
+  return {
+    success: true,
+    executionMode: "simulation",
+    positionId,
+    simulationId:
+      "perp_close_preview_" + Date.now(),
+  };
 }

@@ -1,6 +1,8 @@
-import { SolanaAgent } from '../agent.js';
-import fetch from 'cross-fetch';
-import { VersionedTransaction } from '@solana/web3.js';
+import { SolanaAgent } from "../agent.js";
+import fetch from "cross-fetch";
+import { VersionedTransaction } from "@solana/web3.js";
+import { simulationGate } from "../security/simulation-gate.js";
+import { validateRiskLimits } from "../security/risk-engine.js";
 
 export interface SwapParams {
   inputMint: string;
@@ -9,40 +11,102 @@ export interface SwapParams {
   slippageBps?: number;
 }
 
-export async function executeJupiterSwap(agent: SolanaAgent, params: SwapParams): Promise<string> {
-  if (!agent.keypair) throw new Error("Clé privée requise pour signer le swap.");
+export async function executeJupiterSwap(
+  agent: SolanaAgent,
+  params: SwapParams,
+): Promise<string> {
+  const signer = agent.requireSigner();
 
-  const slippage = params.slippageBps || 50;
-  const baseUrl = process.env.JUPITER_API_URL || 'https://api.jup.ag/swap/v1';
-  const quoteUrl = `${baseUrl}/quote?inputMint=${params.inputMint}&outputMint=${params.outputMint}&amount=${params.amountLamports}&slippageBps=${slippage}`;
-  
-  const quoteRes = await fetch(quoteUrl, {
-    headers: { 'Accept': 'application/json', 'User-Agent': 'solana-agent-skill/1.0' }
+  if (
+    !Number.isSafeInteger(params.amountLamports) ||
+    params.amountLamports <= 0
+  ) {
+    throw new Error(
+      "INVALID_AMOUNT: amountLamports must be a positive safe integer",
+    );
+  }
+
+  const slippageBps = params.slippageBps ?? 50;
+
+  const risk = validateRiskLimits({
+    slippageBps,
   });
-  const quoteData = await quoteRes.json();
+
+  if (!risk.valid) {
+    throw new Error(`${risk.code}: ${risk.message}`);
+  }
+
+  const baseUrl =
+    process.env.JUPITER_API_URL || "https://api.jup.ag/swap/v1";
+
+  const quoteUrl = new URL(`${baseUrl}/quote`);
+  quoteUrl.searchParams.set("inputMint", params.inputMint);
+  quoteUrl.searchParams.set("outputMint", params.outputMint);
+  quoteUrl.searchParams.set("amount", String(params.amountLamports));
+  quoteUrl.searchParams.set("slippageBps", String(slippageBps));
+
+  const quoteRes = await fetch(quoteUrl.toString(), {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "solana-agent-skill/1.0",
+    },
+  });
+
+  if (!quoteRes.ok) {
+    throw new Error(`Jupiter quote HTTP ${quoteRes.status}`);
+  }
+
+  const quoteData: any = await quoteRes.json();
 
   if (!quoteData || quoteData.error) {
-    throw new Error(`Erreur Quote Jupiter: ${JSON.stringify(quoteData)}`);
+    throw new Error(
+      `Erreur Quote Jupiter: ${JSON.stringify(quoteData)}`,
+    );
   }
 
   const swapRes = await fetch(`${baseUrl}/swap`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'User-Agent': 'solana-agent-skill/1.0' },
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "User-Agent": "solana-agent-skill/1.0",
+    },
     body: JSON.stringify({
       quoteResponse: quoteData,
-      userPublicKey: agent.keypair.publicKey.toBase58(),
+      userPublicKey: signer.publicKey.toBase58(),
       wrapAndUnwrapSol: true,
-    })
+    }),
   });
 
-  const { swapTransaction } = await swapRes.json();
-  const swapTransactionBuf = Buffer.from(swapTransaction, 'base64');
-  const transaction = VersionedTransaction.deserialize(swapTransactionBuf);
-  
-  transaction.sign([agent.keypair]);
-  
+  if (!swapRes.ok) {
+    throw new Error(`Jupiter swap HTTP ${swapRes.status}`);
+  }
+
+  const swapData: any = await swapRes.json();
+
+  if (!swapData?.swapTransaction) {
+    throw new Error("Jupiter response did not contain swapTransaction");
+  }
+
+  const transaction = VersionedTransaction.deserialize(
+    Buffer.from(swapData.swapTransaction, "base64"),
+  );
+
+  /*
+   * SECURITY INVARIANT:
+   * never sign a transaction that has not passed RPC simulation.
+   */
+  const simulation = await simulationGate(agent.connection, transaction);
+
+  if (!simulation.approved) {
+    throw new Error(
+      `${simulation.code}: ${simulation.message ?? "Transaction simulation failed"}`,
+    );
+  }
+
+  transaction.sign([signer]);
+
   return await agent.connection.sendRawTransaction(transaction.serialize(), {
     skipPreflight: false,
-    maxRetries: 2
+    maxRetries: 2,
   });
 }
