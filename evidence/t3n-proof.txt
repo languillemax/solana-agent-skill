@@ -1,4 +1,4 @@
-=== COMMIT ===
+=== TESTED COMMIT ===
 24a6f53f447447c14948cd629b6e0be7a397abda
 
 === TESTS ===
