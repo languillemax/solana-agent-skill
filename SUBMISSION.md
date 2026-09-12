@@ -3,7 +3,7 @@ Superteam Submission — Solana Agent Skill Kit
 
 Repository: https://github.com/languillemax/solana-agent-skill
 Author: languillemax
-Status: Security-hardened reference implementation
+Status: T3N-secured autonomous Solana treasury agent
 
 Executive Summary
 
@@ -16,7 +16,8 @@ an agent-generated action must not be trusted merely because it is syntactically
 The toolkit therefore separates:
 agent intent
 -> Zod validation
--> risk policy
+-> local risk policy
+-> authenticated T3N policy authorization
 -> transaction construction
 -> RPC simulation
 -> signing
@@ -34,10 +35,15 @@ Invalid amounts, excessive leverage, excessive slippage and malformed payloads a
 
 2. Central risk engine
 
-Default policy includes:
+Local risk policy includes:
 max amount:     10 SOL
 max leverage:   10x
 max slippage:   500 bps / 5%
+
+The live T3N `solana-guard` contract adds a stricter execution policy for
+SOL transfers, SOL/wSOL Jupiter swaps and SOL-denominated Pump.fun trades:
+max amount:     5 SOL
+max slippage:   100 bps
 3. Simulation-before-sign
 
 Real transaction paths for Pump.fun, Jupiter swaps and SOL/SPL transfers apply the invariant:
@@ -85,15 +91,15 @@ Perps	Simulation / preview
 Squads	Simulation / preview
 Token-2022 adapter	Simulation / preview
 ElizaOS integration	Agent integration surface
-T3N adapter	Policy / logical guardrail surface
+T3N policy guard	Live authenticated policy enforcement for SOL transfer, Jupiter swap and Pump.fun
 
 Preview-only modules return explicit executionMode: "simulation" metadata and do not manufacture blockchain transaction signatures.
 
 Automated Verification
 
 Current suite:
-35 tests
-35 pass
+42 tests
+42 pass
 0 fail
 The suite verifies, among other properties:
 
@@ -109,7 +115,9 @@ read-only behavior without a configured signer,
 explicit simulation contracts for non-live modules,
 absence of fake signatures in preview adapters,
 ElizaOS action registration,
-T3N guardrails.
+T3N authentication and fail-closed identity gating,
+T3N delegation checks,
+live `solana-guard` contract policy enforcement.
 
 Run:
 npm test
@@ -137,6 +145,13 @@ For implemented real transaction paths, failed RPC simulation blocks signing.
 
 Transparency / Current Limitations
 
+Terminal 3 sandbox currently reports zero execution credits on the provisioned
+agent API-key identity, so direct agent `/api/invoke` is documented but cannot
+complete until that identity is funded. The live contract authorization path
+is verified through the authenticated T3N session, while member + organisation
+delegation for the agent independently resolves as authorised.
+
+
 This repository intentionally does not claim production-complete protocol execution for every module.
 
 Current preview-only adapters include:
@@ -158,5 +173,5 @@ npm pack --dry-run
 git diff --check
 npm audit --omit=dev
 Expected test baseline:
-35 pass
+42 pass
 0 fail
