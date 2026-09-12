@@ -6,6 +6,12 @@ process.env.NODE_ENV = "test";
 
 const { app } = await import("../src/server.js");
 
+app.locals.t3nGate = async () => ({
+  approved: true,
+  did: "did:t3n:test-api-security",
+  address: "0xtest",
+});
+
 async function withServer(
   callback: (baseUrl: string) => Promise<void>,
 ) {

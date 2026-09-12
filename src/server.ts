@@ -31,6 +31,7 @@ import {
   pumpfunTradeSchema,
 } from "./tools.js";
 import { validateRiskLimits } from "./security/risk-engine.js";
+import { t3nSecurityGate } from "./security/t3n-gate.js";
 
 const app = express();
 
@@ -188,6 +189,59 @@ function requireExecutionAuth(
   }
 
   next();
+}
+
+type T3nGateProvider =
+  typeof t3nSecurityGate;
+
+/*
+ * Default production provider.
+ *
+ * Tests can replace app.locals.t3nGate
+ * without making a real T3N network call.
+ */
+app.locals.t3nGate =
+  t3nSecurityGate;
+
+async function enforceT3nGate(
+  req: Request,
+  res: Response,
+): Promise<boolean> {
+  const provider =
+    (
+      req.app.locals
+        .t3nGate as
+        | T3nGateProvider
+        | undefined
+    ) ??
+    t3nSecurityGate;
+
+  const result =
+    await provider();
+
+  if (!result.approved) {
+    apiError(
+      res,
+      503,
+      "T3N_AUTH_REQUIRED",
+      result.error ||
+        "T3N authentication required",
+    );
+
+    return false;
+  }
+
+  /*
+   * Keep authenticated identity available
+   * to downstream execution/audit code.
+   */
+  res.locals.t3nDid =
+    result.did;
+
+  res.locals.t3nAddress =
+    result.address;
+
+  return true;
 }
 
 function getExecutionContext() {
@@ -420,6 +474,21 @@ app.post(
           risk.code || "RISK_REJECTED",
           risk.message || "Risk policy rejected transaction",
         );
+      }
+
+      /*
+       * T3N identity/authentication must
+       * approve before the Solana signer
+       * becomes reachable.
+       */
+      const t3nApproved =
+        await enforceT3nGate(
+          req,
+          res,
+        );
+
+      if (!t3nApproved) {
+        return;
       }
 
       const { connection, signer } =
