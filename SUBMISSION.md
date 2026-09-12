@@ -1,75 +1,162 @@
-# 🚀 Superteam Earn Bounty Submission: Solana Agent Skill Toolkit
 
-## 📌 Project Overview
-**Solana Agent Skill Toolkit** est une infrastructure d'actions *on-chain* pour agents autonomes sur Solana, développée en **Node.js / TypeScript (Node 22)**. Elle agit comme une couche d'abstraction sécurisée et standardisée entre l'intention d'un LLM et la blockchain Solana.
+Superteam Submission — Solana Agent Skill Kit
 
-- **Repository GitHub** : [https://github.com/languillemax/solana-agent-skill](https://github.com/languillemax/solana-agent-skill)
-- **Surface d'Intégration** : Bi-fonctionnelle (**Plugin ElizaOS** & **API REST Express**)
-- **Architecture de Sécurité** : Filtrage strict Zod, limites de risque paramétrables et porte de simulation (*Simulation Gate*).
+Repository: https://github.com/languillemax/solana-agent-skill
+Author: languillemax
+Status: Security-hardened reference implementation
 
----
+Executive Summary
 
-## 🛡️ Agent Safety Execution Flow
+solana-agent-skill is a TypeScript toolkit for connecting autonomous agents to Solana actions through explicit validation, risk controls and execution boundaries.
 
-```
-             LLM / AGENT INTENT
-                     │
-                     ▼
-             ZOD PARSING & VALIDATION
-                     │
-                     ▼
-             RISK LIMITS CHECK
-                     │
-                     ▼
-           TRANSACTION CONSTRUCTION
-                     │
-                     ▼
-           RPC SIMULATION GATE
-            ┌────────┴────────┐
-          FAIL              PASS
-            │                 │
-          ABORT             SIGN & BROADCAST
-                              │
-                              ▼
-                      STRUCTURED RESULT
-```
+The project focuses on a central problem in autonomous on-chain agents:
 
----
+an agent-generated action must not be trusted merely because it is syntactically valid.
 
-## 🧪 Evidence Matrix — 22 Test Scenarios
+The toolkit therefore separates:
+agent intent
+-> Zod validation
+-> risk policy
+-> transaction construction
+-> RPC simulation
+-> signing
+-> broadcast
+For supported real transaction paths, simulation must pass before signing becomes reachable.
 
-La suite de tests automatisée (`npm test`) exécute **22 scénarios** (10 *Happy Paths* + 12 Tests Négatifs de Sécurité) avec **100 % de réussite** et **0 erreur TypeScript** (`npx tsc --noEmit`) :
+Modules that are not yet implemented as live protocol integrations are explicitly marked as simulation-only rather than returning fake transaction signatures.
 
-| Domaine Fonctionnel | Fichier de Test | Scénarios Validés | Périmètre & Preuve |
-| :--- | :--- | :---: | :--- |
-| **Core Validation & Risk** | `tests/core.test.ts` | 3 | Schémas Zod stricts, rejet montants négatifs & levier > 10x |
-| **ElizaOS Plugin** | `tests/eliza.test.ts` | 2 | Enregistrement d'actions & gestion des erreurs d'exécution |
-| **Base Solana & Simulation** | `tests/base.test.ts` | 3 | Staking Jito, API Jupiter Price & arrêt sur échec simulation |
-| **API REST Express** | `tests/api.test.ts` | 2 | Routage des endpoints & réponses 400 structurées |
-| **M1 : Launchpad & DEX** | `tests/module1-pumpfun.test.ts` | 2 | Métadonnées Pump.fun & rejet slippage abusif (>50%) |
-| **M2 : Money Markets** | `tests/module2-lending.test.ts` | 2 | Consultation de taux & rejet emprunt négatif |
-| **M3 : Perps & Levier** | `tests/module3-perps.test.ts` | 2 | Ouverture de position & rejet de levier hors-bornes |
-| **M4 : Governance & Blinks** | `tests/module4-squads.test.ts` | 2 | Création Squads v4 & rejet seuil > membres |
-| **M5 : Signals & Webhooks** | `tests/module5-webhooks.test.ts` | 2 | Traitement Helius & rejet de payloads corrompus |
-| **M6 : Advanced Assets** | `tests/module6-token2022.test.ts` | 2 | Taxe Token-2022 & rejet destination vide |
+Security Architecture
+1. Strict schema validation
 
----
+Zod validates agent and HTTP parameters before execution.
 
-## 🔒 Security & Risk Controls
+Invalid amounts, excessive leverage, excessive slippage and malformed payloads are rejected.
 
-1. **Validation Input LLM** : Aucune donnée brute de LLM n'atteint le builder sans validation par schéma Zod.
-2. **Simulation Gate** : Toute transaction échouant à la simulation RPC est avortée avant signature.
-3. **Clés Privées** : Signature exclusive via variables d'environnement, zéro stockage de clé en dur.
-4. **Erreurs Normalisées** : Restitution d'erreurs structurées (`SIMULATION_FAILED`, `LEVERAGE_EXCEEDED`, etc.) consommables par un agent.
+2. Central risk engine
 
----
+Default policy includes:
+max amount:     10 SOL
+max leverage:   10x
+max slippage:   500 bps / 5%
+3. Simulation-before-sign
 
-## 🔍 Verification & Reproduction
+Real transaction paths for Pump.fun, Jupiter swaps and SOL/SPL transfers apply the invariant:
+RPC simulation
+     |
+     v
+ approved?
+ /       \
+NO        YES
+|          |
+abort      sign
+            |
+            v
+         broadcast
+This prevents those execution paths from signing a transaction after a failed simulation.
 
-```bash
-git clone https://github.com/languillemax/solana-agent-skill.git
-cd solana-agent-skill
+4. Server-side signer isolation
+
+Private keys are never accepted from HTTP request bodies.
+
+The signer is loaded from:
+AGENT_PRIVATE_KEY
+No fallback Keypair.generate() execution wallet is created.
+
+5. Server-controlled RPC
+
+Execution requests cannot provide their own rpcUrl.
+
+The RPC endpoint is controlled through:
+SOLANA_RPC_URL
+6. Authenticated HTTP execution
+
+Execution endpoints require a Bearer API key configured through:
+SOLANA_AGENT_API_KEY
+Without it, execution is disabled by default.
+
+Execution Matrix
+Capability	Mode
+Pump.fun trading	Real transaction execution
+Jupiter swap	Real transaction execution
+SOL transfer	Real transaction execution
+SPL transfer	Real transaction execution
+Lending	Simulation / preview
+Perps	Simulation / preview
+Squads	Simulation / preview
+Token-2022 adapter	Simulation / preview
+ElizaOS integration	Agent integration surface
+T3N adapter	Policy / logical guardrail surface
+
+Preview-only modules return explicit executionMode: "simulation" metadata and do not manufacture blockchain transaction signatures.
+
+Automated Verification
+
+Current suite:
+35 tests
+35 pass
+0 fail
+The suite verifies, among other properties:
+
+strict Zod validation,
+negative amount rejection,
+leverage limits,
+simulation gate failure behavior,
+HTTP execution disabled without an API key,
+rejection of invalid Bearer tokens,
+rejection of client-provided privateKey,
+rejection of client-provided rpcUrl,
+read-only behavior without a configured signer,
+explicit simulation contracts for non-live modules,
+absence of fake signatures in preview adapters,
+ElizaOS action registration,
+T3N guardrails.
+
+Run:
+npm test
+Why This Matters for Autonomous Agents
+
+Traditional wallet applications assume a human is reviewing transaction intent.
+
+An autonomous agent changes that threat model.
+
+The model itself may generate:
+
+unsafe values,
+malformed values,
+excessive leverage,
+incorrect protocol parameters,
+unintended actions.
+
+solana-agent-skill inserts deterministic software controls between model output and the signing boundary.
+
+The primary design goal is therefore not simply:
+"Can the agent create a transaction?"
+but:
+"Can an unsafe transaction reach the signer?"
+For implemented real transaction paths, failed RPC simulation blocks signing.
+
+Transparency / Current Limitations
+
+This repository intentionally does not claim production-complete protocol execution for every module.
+
+Current preview-only adapters include:
+
+Kamino / Marginfi lending execution,
+perps execution,
+Squads transaction execution,
+Token-2022 transaction execution.
+
+These modules demonstrate validation and agent-integration contracts while clearly identifying their simulation status.
+
+The repository also inherits transitive packages from the Solana JavaScript ecosystem that may appear in npm audit. Forced dependency downgrades are not used as a substitute for compatible remediation.
+
+Verification Commands
 npm install
 npm test
-npx tsc --noEmit
-```
+npm run build
+npm pack --dry-run
+git diff --check
+npm audit --omit=dev
+Expected test baseline:
+35 pass
+0 fail

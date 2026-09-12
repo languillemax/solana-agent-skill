@@ -1,166 +1,725 @@
+import express, {
+  type NextFunction,
+  type Request,
+  type Response,
+} from "express";
+import { timingSafeEqual } from "node:crypto";
+import { z } from "zod";
+
 import { parseSolanaWebhook } from "./actions/signals.js";
 import { transferToken2022WithFee } from "./actions/token2022.js";
-import { createMultisigAccount, createMultisigProposal } from "./actions/squads.js";
+import { createMultisigAccount } from "./actions/squads.js";
 import { generateBlinkUrl } from "./actions/blinks.js";
-import { openPerpPosition, closePerpPosition, getPerpMarketInfo } from "./actions/perps.js";
-import { executeLendingAction, getLendingRates } from "./actions/lending.js";
-import { Connection, Keypair } from "@solana/web3.js";
-import express from "express";
-import { executePumpFunTrade, getPumpFunTokenInfo } from "./actions/pumpfun.js";
-import { SOLANA_AGENT_TOOLS } from "./tools.js";
+import {
+  openPerpPosition,
+  getPerpMarketInfo,
+} from "./actions/perps.js";
+import {
+  executeLendingAction,
+  getLendingRates,
+} from "./actions/lending.js";
+import {
+  executePumpFunTrade,
+  getPumpFunTokenInfo,
+} from "./actions/pumpfun.js";
 import { getPortfolio } from "./actions/portfolio.js";
 import { getJitoStakeQuote } from "./actions/stake.js";
 
+import { SolanaAgent } from "./agent.js";
+import {
+  lendingSchema,
+  pumpfunTradeSchema,
+} from "./tools.js";
+import { validateRiskLimits } from "./security/risk-engine.js";
+import { t3nSecurityGate } from "./security/t3n-gate.js";
+
 const app = express();
-app.use(express.json());
 
-const PORT = process.env.PORT || 3000;
-const DEFAULT_RPC = "https://api.mainnet-beta.solana.com";
+app.disable("x-powered-by");
+app.use(express.json({ limit: "64kb" }));
 
-app.get("/health", (req: any, res: any) => {
-  res.json({ status: "ok", service: "solana-agent-skill-api" });
+const PORT = Number(process.env.PORT || 3000);
+
+const RPC_URL =
+  process.env.SOLANA_RPC_URL ||
+  "https://api.mainnet-beta.solana.com";
+
+const publicKeySchema = z.string().min(32).max(44);
+
+const portfolioSchema = z
+  .object({
+    walletAddress: publicKeySchema,
+  })
+  .strict();
+
+const stakeQuoteSchema = z
+  .object({
+    amountSol: z.number().finite().positive().max(10).default(1),
+  })
+  .strict();
+
+const perpOpenSchema = z
+  .object({
+    market: z.string().min(1).max(64),
+    side: z.enum(["long", "short"]),
+    leverage: z.number().finite().min(1).max(10),
+    collateralAmount: z.number().finite().positive().max(10),
+    stopLossPrice: z.number().finite().positive().optional(),
+    takeProfitPrice: z.number().finite().positive().optional(),
+  })
+  .strict();
+
+const squadsCreateSchema = z
+  .object({
+    threshold: z.number().int().positive(),
+    members: z.array(publicKeySchema).min(1).max(10),
+  })
+  .strict()
+  .refine(
+    (data) => data.threshold <= data.members.length,
+    {
+      message: "Threshold cannot exceed number of members",
+      path: ["threshold"],
+    },
+  );
+
+const token2022TransferSchema = z
+  .object({
+    mint: publicKeySchema,
+    destination: publicKeySchema,
+    amount: z.number().finite().positive(),
+  })
+  .strict();
+
+const blinkSchema = z
+  .record(z.string(), z.unknown());
+
+function apiError(
+  res: Response,
+  status: number,
+  code: string,
+  message: string,
+) {
+  return res.status(status).json({
+    success: false,
+    error: {
+      code,
+      message,
+    },
+  });
+}
+
+function validateBody<T extends z.ZodTypeAny>(
+  schema: T,
+  req: Request,
+  res: Response,
+): z.infer<T> | null {
+  const parsed = schema.safeParse(req.body);
+
+  if (!parsed.success) {
+    const firstIssue = parsed.error.issues[0];
+
+    apiError(
+      res,
+      400,
+      "INVALID_PAYLOAD",
+      firstIssue?.message || "Invalid request body",
+    );
+
+    return null;
+  }
+
+  return parsed.data;
+}
+
+function safeSecretEquals(
+  provided: string,
+  expected: string,
+): boolean {
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+
+  if (a.length !== b.length) {
+    return false;
+  }
+
+  return timingSafeEqual(a, b);
+}
+
+function requireExecutionAuth(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  const apiKey = process.env.SOLANA_AGENT_API_KEY;
+
+  /*
+   * Secure by default:
+   * without an API key, HTTP execution is disabled.
+   */
+  if (!apiKey) {
+    return apiError(
+      res,
+      503,
+      "EXECUTION_DISABLED",
+      "SOLANA_AGENT_API_KEY is not configured",
+    );
+  }
+
+  const authorization = req.headers.authorization;
+
+  if (!authorization?.startsWith("Bearer ")) {
+    return apiError(
+      res,
+      401,
+      "UNAUTHORIZED",
+      "Bearer token required",
+    );
+  }
+
+  const provided = authorization.slice("Bearer ".length);
+
+  if (!safeSecretEquals(provided, apiKey)) {
+    return apiError(
+      res,
+      401,
+      "UNAUTHORIZED",
+      "Invalid bearer token",
+    );
+  }
+
+  next();
+}
+
+type T3nGateProvider =
+  typeof t3nSecurityGate;
+
+/*
+ * Default production provider.
+ *
+ * Tests can replace app.locals.t3nGate
+ * without making a real T3N network call.
+ */
+app.locals.t3nGate =
+  t3nSecurityGate;
+
+async function enforceT3nGate(
+  req: Request,
+  res: Response,
+): Promise<boolean> {
+  const provider =
+    (
+      req.app.locals
+        .t3nGate as
+        | T3nGateProvider
+        | undefined
+    ) ??
+    t3nSecurityGate;
+
+  const result =
+    await provider();
+
+  if (!result.approved) {
+    apiError(
+      res,
+      503,
+      "T3N_AUTH_REQUIRED",
+      result.error ||
+        "T3N authentication required",
+    );
+
+    return false;
+  }
+
+  /*
+   * Keep authenticated identity available
+   * to downstream execution/audit code.
+   */
+  res.locals.t3nDid =
+    result.did;
+
+  res.locals.t3nAddress =
+    result.address;
+
+  return true;
+}
+
+function getExecutionContext() {
+  const agent = new SolanaAgent(RPC_URL);
+
+  if (agent.isReadOnly()) {
+    throw new Error(
+      "READ_ONLY_MODE: AGENT_PRIVATE_KEY is not configured",
+    );
+  }
+
+  return {
+    connection: agent.connection,
+    signer: agent.requireSigner(),
+  };
+}
+
+function executionError(
+  res: Response,
+  error: unknown,
+) {
+  const message =
+    error instanceof Error
+      ? error.message
+      : String(error);
+
+  if (message.startsWith("READ_ONLY_MODE")) {
+    return apiError(
+      res,
+      503,
+      "READ_ONLY_MODE",
+      message,
+    );
+  }
+
+  return apiError(
+    res,
+    500,
+    "EXECUTION_ERROR",
+    message,
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Health / capabilities                                               */
+/* ------------------------------------------------------------------ */
+
+app.get("/health", (_req, res) => {
+  res.json({
+    status: "ok",
+    service: "solana-agent-skill-api",
+    executionConfigured: Boolean(
+      process.env.SOLANA_AGENT_API_KEY &&
+      process.env.AGENT_PRIVATE_KEY
+    ),
+  });
 });
 
-app.get("/tools", (req: any, res: any) => {
-  res.json({ tools: SOLANA_AGENT_TOOLS });
-});
+/* ------------------------------------------------------------------ */
+/* Read-only endpoints                                                 */
+/* ------------------------------------------------------------------ */
 
-app.post("/portfolio", async (req: any, res: any) => {
+app.post("/portfolio", async (req, res) => {
   try {
-    const { walletAddress } = req.body;
-    if (!walletAddress) return res.status(400).json({ error: "walletAddress requis" });
-    const data = await getPortfolio(DEFAULT_RPC, walletAddress);
+    const body = validateBody(
+      portfolioSchema,
+      req,
+      res,
+    );
+
+    if (!body) return;
+
+    const data = await getPortfolio(
+      RPC_URL,
+      body.walletAddress,
+    );
+
     res.json(data);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (error) {
+    apiError(
+      res,
+      500,
+      "PORTFOLIO_ERROR",
+      error instanceof Error
+        ? error.message
+        : String(error),
+    );
   }
 });
 
-app.post("/stake/jito", async (req: any, res: any) => {
+app.post("/stake/jito", async (req, res) => {
   try {
-    const { amountSol } = req.body;
-    const data = await getJitoStakeQuote(amountSol || 1);
+    const body = validateBody(
+      stakeQuoteSchema,
+      req,
+      res,
+    );
+
+    if (!body) return;
+
+    const data = await getJitoStakeQuote(
+      body.amountSol,
+    );
+
     res.json(data);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (error) {
+    apiError(
+      res,
+      500,
+      "STAKE_QUOTE_ERROR",
+      error instanceof Error
+        ? error.message
+        : String(error),
+    );
   }
 });
 
-app.post("/api/pumpfun/trade", async (req: any, res: any) => {
+app.get("/api/pumpfun/info/:mint", async (req, res) => {
   try {
-    const connection = new Connection(req.body.rpcUrl || DEFAULT_RPC, "confirmed");
-    const wallet = req.body.privateKey
-      ? Keypair.fromSecretKey(Uint8Array.from(JSON.parse(req.body.privateKey)))
-      : Keypair.generate();
-    const result = await executePumpFunTrade(connection, wallet, req.body);
-    res.json(result);
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    const parsed = publicKeySchema.safeParse(
+      req.params.mint,
+    );
+
+    if (!parsed.success) {
+      return apiError(
+        res,
+        400,
+        "INVALID_MINT",
+        "Invalid mint address",
+      );
+    }
+
+    const data = await getPumpFunTokenInfo(
+      parsed.data,
+    );
+
+    res.json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    apiError(
+      res,
+      500,
+      "PUMPFUN_INFO_ERROR",
+      error instanceof Error
+        ? error.message
+        : String(error),
+    );
   }
 });
 
-app.get("/api/pumpfun/info/:mint", async (req: any, res: any) => {
-  try {
-    const data = await getPumpFunTokenInfo(req.params.mint);
-    res.json({ success: true, data });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+app.get("/api/lending/rates", async (req, res) => {
+  const protocolSchema = z.enum([
+    "kamino",
+    "marginfi",
+  ]);
+
+  const parsed = protocolSchema.safeParse(
+    req.query.protocol || "kamino",
+  );
+
+  if (!parsed.success) {
+    return apiError(
+      res,
+      400,
+      "INVALID_PROTOCOL",
+      "protocol must be kamino or marginfi",
+    );
   }
+
+  const data = await getLendingRates(
+    parsed.data,
+  );
+
+  res.json(data);
 });
 
-
-app.get("/api/lending/rates", async (req: any, res: any) => {
+app.get("/api/perps/market/:symbol", async (req, res) => {
   try {
-    const protocol = (req.query.protocol as "kamino" | "marginfi") || "kamino";
-    const data = await getLendingRates(protocol);
+    const market = z
+      .string()
+      .min(1)
+      .max(64)
+      .parse(req.params.symbol);
+
+    const data = await getPerpMarketInfo(
+      market,
+    );
+
     res.json(data);
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error) {
+    apiError(
+      res,
+      400,
+      "INVALID_MARKET",
+      error instanceof Error
+        ? error.message
+        : String(error),
+    );
   }
 });
 
-app.post("/api/lending/action", async (req: any, res: any) => {
+/* ------------------------------------------------------------------ */
+/* Authenticated execution endpoints                                   */
+/* ------------------------------------------------------------------ */
+
+app.post(
+  "/api/pumpfun/trade",
+  requireExecutionAuth,
+  async (req, res) => {
+    try {
+      const body = validateBody(
+        pumpfunTradeSchema.strict(),
+        req,
+        res,
+      );
+
+      if (!body) return;
+
+      const risk = validateRiskLimits({
+        amount: body.amount,
+        slippageBps: body.slippageBps,
+      });
+
+      if (!risk.valid) {
+        return apiError(
+          res,
+          403,
+          risk.code || "RISK_REJECTED",
+          risk.message || "Risk policy rejected transaction",
+        );
+      }
+
+      /*
+       * T3N identity/authentication must
+       * approve before the Solana signer
+       * becomes reachable.
+       */
+      const t3nApproved =
+        await enforceT3nGate(
+          req,
+          res,
+        );
+
+      if (!t3nApproved) {
+        return;
+      }
+
+      const { connection, signer } =
+        getExecutionContext();
+
+      const result = await executePumpFunTrade(
+        connection,
+        signer,
+        body,
+      );
+
+      res.status(result.success ? 200 : 422).json(
+        result,
+      );
+    } catch (error) {
+      executionError(res, error);
+    }
+  },
+);
+
+app.post(
+  "/api/lending/action",
+  requireExecutionAuth,
+  async (req, res) => {
+    try {
+      const body = validateBody(
+        lendingSchema.strict(),
+        req,
+        res,
+      );
+
+      if (!body) return;
+
+      const risk = validateRiskLimits({
+        amount: body.amount,
+      });
+
+      if (!risk.valid) {
+        return apiError(
+          res,
+          403,
+          risk.code || "RISK_REJECTED",
+          risk.message || "Risk policy rejected action",
+        );
+      }
+
+      const { connection, signer } =
+        getExecutionContext();
+
+      const result = await executeLendingAction(
+        connection,
+        signer,
+        body,
+      );
+
+      res.json(result);
+    } catch (error) {
+      executionError(res, error);
+    }
+  },
+);
+
+app.post(
+  "/api/perps/open",
+  requireExecutionAuth,
+  async (req, res) => {
+    try {
+      const body = validateBody(
+        perpOpenSchema,
+        req,
+        res,
+      );
+
+      if (!body) return;
+
+      const risk = validateRiskLimits({
+        amount: body.collateralAmount,
+        leverage: body.leverage,
+      });
+
+      if (!risk.valid) {
+        return apiError(
+          res,
+          403,
+          risk.code || "RISK_REJECTED",
+          risk.message || "Risk policy rejected position",
+        );
+      }
+
+      const { connection, signer } =
+        getExecutionContext();
+
+      const result = await openPerpPosition(
+        connection,
+        signer,
+        body,
+      );
+
+      res.json(result);
+    } catch (error) {
+      executionError(res, error);
+    }
+  },
+);
+
+app.post(
+  "/api/squads/create",
+  requireExecutionAuth,
+  async (req, res) => {
+    try {
+      const body = validateBody(
+        squadsCreateSchema,
+        req,
+        res,
+      );
+
+      if (!body) return;
+
+      const { connection, signer } =
+        getExecutionContext();
+
+      const result = await createMultisigAccount(
+        connection,
+        signer,
+        body,
+      );
+
+      res.json(result);
+    } catch (error) {
+      executionError(res, error);
+    }
+  },
+);
+
+app.post(
+  "/api/token2022/transfer",
+  requireExecutionAuth,
+  async (req, res) => {
+    try {
+      const body = validateBody(
+        token2022TransferSchema,
+        req,
+        res,
+      );
+
+      if (!body) return;
+
+      const { connection, signer } =
+        getExecutionContext();
+
+      const result =
+        await transferToken2022WithFee(
+          connection,
+          signer,
+          body,
+        );
+
+      res.json(result);
+    } catch (error) {
+      executionError(res, error);
+    }
+  },
+);
+
+/* ------------------------------------------------------------------ */
+/* Utility / integration endpoints                                     */
+/* ------------------------------------------------------------------ */
+
+app.post("/api/blinks/generate", (req, res) => {
+  const parsed = blinkSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    return apiError(
+      res,
+      400,
+      "INVALID_PAYLOAD",
+      "Invalid Blink payload",
+    );
+  }
+
   try {
-    const connection = new Connection(req.body.rpcUrl || DEFAULT_RPC, "confirmed");
-    const wallet = req.body.privateKey
-      ? Keypair.fromSecretKey(Uint8Array.from(JSON.parse(req.body.privateKey)))
-      : Keypair.generate();
-    const result = await executeLendingAction(connection, wallet, req.body);
+    res.json(generateBlinkUrl(parsed.data as any));
+  } catch (error) {
+    apiError(
+      res,
+      400,
+      "BLINK_ERROR",
+      error instanceof Error
+        ? error.message
+        : String(error),
+    );
+  }
+});
+
+app.post("/api/webhook/solana", (req, res) => {
+  try {
+    const result = parseSolanaWebhook(
+      req.body,
+    );
+
     res.json(result);
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error) {
+    apiError(
+      res,
+      400,
+      "INVALID_WEBHOOK",
+      error instanceof Error
+        ? error.message
+        : String(error),
+    );
   }
 });
 
+export { app };
 
-app.get("/api/perps/market/:symbol", async (req: any, res: any) => {
-  try {
-    const data = await getPerpMarketInfo(req.params.symbol);
-    res.json(data);
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+if (process.env.NODE_ENV !== "test") {
+  app.listen(PORT, () => {
+    console.log(
+      `Server running on port ${PORT}`,
+    );
 
-app.post("/api/perps/open", async (req: any, res: any) => {
-  try {
-    const connection = new Connection(req.body.rpcUrl || DEFAULT_RPC, "confirmed");
-    const wallet = req.body.privateKey
-      ? Keypair.fromSecretKey(Uint8Array.from(JSON.parse(req.body.privateKey)))
-      : Keypair.generate();
-    const result = await openPerpPosition(connection, wallet, req.body);
-    res.json(result);
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+    console.log(
+      process.env.AGENT_PRIVATE_KEY
+        ? "Execution signer: configured"
+        : "Execution signer: READ-ONLY",
+    );
 
-
-app.post("/api/squads/create", async (req: any, res: any) => {
-  try {
-    const connection = new Connection(req.body.rpcUrl || DEFAULT_RPC, "confirmed");
-    const wallet = req.body.privateKey
-      ? Keypair.fromSecretKey(Uint8Array.from(JSON.parse(req.body.privateKey)))
-      : Keypair.generate();
-    const result = await createMultisigAccount(connection, wallet, req.body);
-    res.json(result);
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.post("/api/blinks/generate", (req: any, res: any) => {
-  try {
-    const result = generateBlinkUrl(req.body);
-    res.json(result);
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-
-app.post("/api/webhook/solana", (req: any, res: any) => {
-  try {
-    const result = parseSolanaWebhook(req.body);
-    res.json(result);
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.post("/api/token2022/transfer", async (req: any, res: any) => {
-  try {
-    const connection = new Connection(req.body.rpcUrl || DEFAULT_RPC, "confirmed");
-    const wallet = req.body.privateKey
-      ? Keypair.fromSecretKey(Uint8Array.from(JSON.parse(req.body.privateKey)))
-      : Keypair.generate();
-    const result = await transferToken2022WithFee(connection, wallet, req.body);
-    res.json(result);
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.listen(PORT, () => {
-  console.log("Server running on port " + PORT);
-});
+    console.log(
+      process.env.SOLANA_AGENT_API_KEY
+        ? "HTTP execution auth: enabled"
+        : "HTTP execution auth: disabled",
+    );
+  });
+}

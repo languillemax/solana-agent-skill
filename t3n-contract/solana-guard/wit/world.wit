@@ -1,0 +1,17 @@
+package z:solana-guard@0.1.0;
+
+world solana-guard {
+    export contracts;
+}
+
+interface contracts {
+    record generic-input {
+        input:        option<list<u8>>,
+        user-profile: option<list<u8>>,
+        context:      option<list<u8>>,
+    }
+
+    authorize-solana-action: func(
+        req: generic-input
+    ) -> result<list<u8>, string>;
+}

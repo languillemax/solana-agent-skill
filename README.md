@@ -1,164 +1,230 @@
 # Solana Agent Skill Toolkit
 
-Infrastructure d'actions on-chain pour agents autonomes sur Solana, développée en Node.js / TypeScript (Node 22), intégrable avec **ElizaOS** ou exposée via une **API REST Express**.
+Security-hardened Solana action toolkit for autonomous agents, written in TypeScript and usable through an Express REST API, ElizaOS integration, and a Terminal 3 Network (T3N) adapter.
 
-Elle fournit une couche d'abstraction standardisée entre l'intention d'un agent et l'exécution d'actions Solana, avec validation des paramètres, contrôles de risque et intégrations protocolaires.
+The project separates:
 
-## 🏗️ Architecture Système
+- input validation,
+- risk policy,
+- transaction simulation,
+- signing,
+- broadcasting,
+- and simulation-only protocol previews.
 
-```mermaid
-graph TD
-    User([Utilisateur / Prompt]) --> Client[Client HTTP / Agent AI]
-    subgraph Dual Surface[Dual Integration Surface]
-        Express[Serveur Express REST API]
-        Eliza[Plugin ElizaOS]
-    end
-    Client --> Express
-    Client --> Eliza
-    Express --> Skill[Solana Agent Skill Toolkit]
-    Eliza --> Skill
+This distinction is intentional: the repository does **not** claim that every protocol adapter currently performs a live on-chain execution.
 
-    Skill --> Jupiter[Jupiter v6 / Perps]
-    Skill --> Drift[Drift Protocol]
-    Skill --> Kamino[Kamino / Marginfi]
-    Skill --> Squads[Squads Multisig v4]
-    Skill --> Pump[Pump.fun / Raydium]
-    Skill --> Token[Token-2022 / cNFTs]
-    Skill --> RPC[Helius / QuickNode RPC]
-```
+---
 
-## 🛡️ Security & Risk Controls
-
-Mécanismes de validation et de contrôle d'exécution destinés à réduire les erreurs d'exécution et les paramètres dangereux avant soumission de transaction :
-- **Strict Schema Validation (Zod)** : Filtrage strict de chaque paramètre généré par un LLM avant la construction de la transaction.
-- **Contrôle des Bornes & Slippage** : Protection contre les montants invalides, valeurs négatives et glissement excessif.
-- **Gestion Isolée des Clés** : Signature exclusive via variables d'environnement, aucun stockage de clé privée dans le code.
-- **Interception des Erreurs RPC** : Interception et normalisation des erreurs RPC avec renvoi de messages structurés à l'agent.
-
-## 🧪 13 Critical-Path Tests — 10 Test Areas
-
-> **Validation Scope** : Les 13 scénarios de test exécutés par `npm test` sont regroupés en 10 domaines fonctionnels dans la matrice ci-dessous. Ils combinent tests unitaires, contractuels, simulations, fixtures et intégrations HTTP/API selon le module ; ils ne constituent pas une exécution Mainnet exhaustive de toutes les opérations.
-
-La suite de tests (`npm test`) couvre **13 scénarios critiques** répartis sur les surfaces principales d'intégration et d'exécution :
-
-| Scénario / Module | Nature du Test | Périmètre Réellement Vérifié | Statut |
-| :--- | :--- | :--- | :---: |
-| **Core Specs** | Unit / Schema | Validation stricte des schémas d'entrée AI | Conforme |
-| **ElizaOS Plugin** | Structural Contract | Enregistrement correct des actions & handlers | Conforme |
-| **v1.1 Base** | Live API + RPC Simulation | Prix Jupiter Price v2 & simulation Staking Jito | Conforme |
-| **API REST** | E2E Integration | Serveur HTTP Express & validation des routes | Conforme |
-| **M1 : Launchpad & DEX** | Live HTTP API | Métadonnées Pump.fun & structure d'ordre Raydium | Conforme |
-| **M2 : Money Markets** | Calculator / Simulation | Taux Kamino/Marginfi & validation d'emprunt | Conforme |
-| **M3 : Perps & Levier** | Contract Simulation | Bornes de levier & paramètres Drift / Jup Perps | Conforme |
-| **M4 : Multisig & Blinks** | Spec / URL Test | Génération de multisig Squads v4 & liens Blinks | Conforme |
-| **M5 : Signals** | Fixture Replay | Traitement et parsing de payloads Webhook Helius | Conforme |
-| **M6 : Advanced Assets** | Logic / Spec Test | Extensions Token-2022 (Transfer Tax) & cNFTs | Conforme |
-
-### 📁 Cartographie du Répertoire de Tests (`tests/`)
+## Architecture
 
 ```text
-tests/
-├── core.test.ts          # Validation Zod & schémas AI
-├── eliza.test.ts         # Contrats d'actions ElizaOS
-├── base.test.ts          # Base v1.1 (Transferts, Staking Jito, Jupiter)
-├── api.test.ts           # Endpoints Express REST API
-├── module1-pumpfun.test.ts
-├── module2-lending.test.ts
-├── module3-perps.test.ts
-├── module4-squads.test.ts
-├── module5-webhooks.test.ts
-└── module6-token2022.test.ts
-```
+Agent / HTTP Client
+        |
+        v
+   Zod validation
+        |
+        v
+    Risk policy
+        |
+        +------------------------------+
+        |                              |
+        v                              v
+Real transaction path          Preview-only adapter
+        |                              |
+        v                              v
+Build transaction             executionMode="simulation"
+        |
+        v
+Solana RPC simulation
+        |
+    approved?
+    /      \
+  NO        YES
+  |          |
+ abort       v
+           sign
+             |
+             v
+          broadcast
+Security invariant
 
-## 🔌 Structure d'une Action ElizaOS (Plugin Contract)
+For supported real transaction paths:
+simulation -> approval -> signature -> broadcast
+Signing is not performed when RPC simulation fails.
+Current Execution Matrix
+Module	Current behavior	On-chain broadcast
+Pump.fun trade	Real transaction path with RPC simulation before signing	Yes
+Jupiter swap	Real transaction path with RPC simulation before signing	Yes
+SOL transfer	Real transaction path with RPC simulation before signing	Yes
+SPL transfer	Real transaction path with RPC simulation before signing	Yes
+Lending / Kamino / Marginfi	Explicit preview adapter	No
+Perps	Explicit preview adapter	No
+Squads	Explicit preview adapter	No
+Token-2022 module	Explicit preview adapter	No
+T3N adapter	Policy / logical authorization layer	No direct RPC broadcast
 
-*Exemple illustratif du contrat d'interface exposé à ElizaOS (l'implémentation de production embarque la couche d'exécution Solana Web3.js / Anchor) :*
+Preview adapters return:
+{
+  "success": true,
+  "executionMode": "simulation",
+  "simulationId": "..."
+}
+They deliberately do not return fake Solana transaction signatures.
 
-```typescript
-import { Action, AgentRuntime, Memory, State } from "@elizaos/core";
-import { pumpfunBuySchema } from "./tools.js";
+Security Controls
+Strict input validation
 
-export const pumpfunBuyAction: Action = {
-  name: "PUMPFUN_BUY",
-  description: "Acheter des tokens sur Pump.fun via Solana Agent Skill",
-  validate: async (runtime: AgentRuntime, message: Memory) => {
-    // Validation contextuelle simplifiée pour l'exemple
-    return true;
-  },
-  handler: async (runtime: AgentRuntime, message: Memory, state?: State) => {
-    // 1. Extraction et validation Zod
-    const params = pumpfunBuySchema.parse(message.content);
-    // 2. Appel de la couche d'exécution Solana (Web3.js)
-    return { success: true, action: "PUMPFUN_BUY", params };
-  },
-  examples: []
-};
-```
+Zod schemas constrain:
 
-## 🌐 Endpoints REST API — Spécifications Microservice
+positive amounts,
+leverage,
+slippage,
+supported enums,
+input shapes,
+unexpected HTTP properties.
 
-Exécution locale du serveur REST :
-```bash
+Execution endpoint schemas use strict parsing, so client-supplied fields such as:
+privateKey
+rpcUrl
+are rejected.
+
+Central risk engine
+
+Default policy:
+max amount:      10 SOL
+max leverage:    10x
+max slippage:    500 bps / 5%
+Signer isolation
+
+The HTTP API never accepts a private key in a request body.
+
+The signer is loaded server-side from:
+AGENT_PRIVATE_KEY
+If no signer is configured, execution runs in read-only mode.
+
+Server-controlled RPC
+
+Clients cannot provide an execution RPC URL.
+
+The server uses:
+SOLANA_RPC_URL
+or the default Solana mainnet RPC endpoint.
+
+HTTP execution authentication
+
+State-changing execution endpoints require:
+Authorization: Bearer <SOLANA_AGENT_API_KEY>
+If SOLANA_AGENT_API_KEY is absent, HTTP execution is disabled by default.
+
+RPC simulation gate
+
+Built Solana transactions in supported execution paths are simulated using the RPC before signing.
+
+A failed simulation aborts the execution path before any signature is produced.
+REST API
+
+Start the server:
+npm run build
 npm start
-```
+Development:
+npm run dev
+Health
+curl http://localhost:3000/health
+Read-only examples
 
-### Module 1 : Launchpad & DEX (Pump.fun)
-```bash
-curl -X POST http://localhost:3000/api/solana/pumpfun/buy \
+Pump.fun token info:
+curl \
+  http://localhost:3000/api/pumpfun/info/<MINT>
+Lending rates:
+curl \
+  "http://localhost:3000/api/lending/rates?protocol=kamino"
+Perps market preview data:
+curl \
+  http://localhost:3000/api/perps/market/SOL-PERP
+Authenticated Pump.fun execution
+curl -X POST \
+  http://localhost:3000/api/pumpfun/trade \
+  -H "Authorization: Bearer $SOLANA_AGENT_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"mint": "2zMMhcB612z73mB52v6dGdb655752t22", "amountSol": 0.05, "slippage": 1}'
-```
-
-### Module 2 : Money Markets (Kamino / Marginfi)
-```bash
-curl -X POST http://localhost:3000/api/solana/lending/deposit \
+  -d '{
+    "mint": "So11111111111111111111111111111111111111112",
+    "action": "buy",
+    "amount": 0.1,
+    "denominatedInSol": true,
+    "slippageBps": 100
+  }'
+Preview-only lending action
+curl -X POST \
+  http://localhost:3000/api/lending/action \
+  -H "Authorization: Bearer $SOLANA_AGENT_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"protocol": "kamino", "asset": "USDC", "amount": 50}'
-```
+  -d '{
+    "protocol": "kamino",
+    "asset": "USDC",
+    "amount": 1,
+    "action": "deposit"
+  }'
+This endpoint currently returns a simulation/preview result and does not submit a Kamino or Marginfi transaction.
 
-### Module 3 : Perps & Levier (Drift / Jupiter Perps)
-```bash
-curl -X POST http://localhost:3000/api/solana/perps/open \
-  -H "Content-Type: application/json" \
-  -d '{"market": "SOL-PERP", "side": "long", "amount": 1, "leverage": 2}'
-```
+Environment
 
-### Module 4 : Multisig Squads v4
-```bash
-curl -X POST http://localhost:3000/api/solana/squads/create \
-  -H "Content-Type: application/json" \
-  -d '{"threshold": 2, "members": ["83bd3y4...", "5Q544f..."]}'
-```
+Copy the example configuration:
+cp .env.example .env
+Required for authenticated execution:
+SOLANA_AGENT_API_KEY
+AGENT_PRIVATE_KEY
+Optional:
+SOLANA_RPC_URL
+JUPITER_API_URL
+PORT
+Never commit .env or private key material.
 
-### Module 5 : Signals & Webhooks (Helius)
-```bash
-curl -X POST http://localhost:3000/api/solana/webhook/helius \
-  -H "Content-Type: application/json" \
-  -d '{"type": "TRANSFER", "signature": "5Kn...", "accountData": []}'
-```
+Automated Tests
 
-### Module 6 : Token-2022 Extensions
-```bash
-curl -X POST http://localhost:3000/api/solana/token2022/transfer \
-  -H "Content-Type: application/json" \
-  -d '{"mint": "4k3Dyj...", "destination": "83bd3y4...", "amount": 100, "fee": 1}'
-```
-
-## 🤖 Exemple de Flux d'Exécution Agent (Illustratif)
-
-*(Séquence conceptuelle du traitement d'une intention par l'agent)*
-
-```
-User Prompt: "Achète pour 0.05 SOL du token Pump.fun <MINT_ADDRESS>"
-├── 1. Intent Detection -> Match Action: "PUMPFUN_BUY"
-├── 2. Zod Schema Validation -> Params: { mint: "<MINT_ADDRESS>", amountSol: 0.05 }
-├── 3. Tool Execution -> Construction de l'instruction Solana Web3.js
-├── 4. Simulation & Signature -> Signature via la Keypair configurée
-└── 5. Result -> Output JSON: { success: true, status: "executed" }
-```
-
-## 🧪 Lancer la Batterie de Tests
-
-```bash
+Run:
 npm test
-```
+Current validated suite:
+35 tests
+35 pass
+0 fail
+Coverage includes:
+
+Zod validation,
+risk limits,
+simulation failure behavior,
+HTTP API authentication,
+private-key injection rejection,
+RPC URL injection rejection,
+read-only execution mode,
+Pump.fun safety checks,
+protocol preview contracts,
+ElizaOS registration,
+T3N guardrails,
+webhook parsing,
+lending/perps/Squads/Token-2022 constraints.
+
+Important: passing tests do not imply that every protocol module performs live mainnet execution. Preview-only modules are identified explicitly above.
+
+Development
+npm install
+npm test
+npm run build
+Release-oriented checks:
+npm test
+npm run build
+npm pack --dry-run
+git diff --check
+
+Dependency Security
+
+npm audit may report vulnerabilities inherited from the Solana JavaScript dependency tree.
+
+Do not use:
+npm audit fix --force
+without reviewing the resulting dependency changes. Forced remediation may select incompatible or severely outdated Solana packages.
+
+See SECURITY.md for the current threat model and limitations.
+
+License
+
+MIT

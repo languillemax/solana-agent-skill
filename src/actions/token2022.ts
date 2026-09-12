@@ -1,4 +1,7 @@
-import { Connection, Keypair } from "@solana/web3.js";
+import {
+  Connection,
+  Keypair,
+} from "@solana/web3.js";
 
 export interface Token2022TransferParams {
   mint: string;
@@ -6,20 +9,40 @@ export interface Token2022TransferParams {
   amount: number;
 }
 
+export interface Token2022SimulationResult {
+  success: boolean;
+  executionMode: "simulation";
+  simulationId?: string;
+  error?: string;
+}
+
+/**
+ * Preview-only adapter.
+ *
+ * No Token-2022 instruction is built, signed or broadcast here.
+ */
 export async function transferToken2022WithFee(
-  connection: Connection,
-  payer: Keypair,
-  params: Token2022TransferParams
-): Promise<{ success: boolean; signature?: string; error?: string }> {
-  try {
-    if (!params.mint || !params.destination || params.amount <= 0) {
-      return { success: false, error: "Paramètres invalides" };
-    }
+  _connection: Connection,
+  _payer: Keypair,
+  params: Token2022TransferParams,
+): Promise<Token2022SimulationResult> {
+  if (
+    !params.mint ||
+    !params.destination ||
+    !Number.isFinite(params.amount) ||
+    params.amount <= 0
+  ) {
     return {
-      success: true,
-      signature: "simulated_token2022_tx_" + Date.now()
+      success: false,
+      executionMode: "simulation",
+      error: "INVALID_PARAMETERS",
     };
-  } catch (error: any) {
-    return { success: false, error: error.message || String(error) };
   }
+
+  return {
+    success: true,
+    executionMode: "simulation",
+    simulationId:
+      "token2022_transfer_preview_" + Date.now(),
+  };
 }

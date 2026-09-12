@@ -1,4 +1,7 @@
-import { Connection, Keypair, PublicKey } from "@solana/web3.js";
+import {
+  Connection,
+  Keypair,
+} from "@solana/web3.js";
 
 export interface CreateMultisigParams {
   threshold: number;
@@ -10,38 +13,76 @@ export interface MultisigProposalParams {
   transactionIndex: number;
 }
 
+export interface SquadsSimulationResult {
+  success: boolean;
+  executionMode: "simulation";
+  simulationId?: string;
+  multisigPda?: string;
+  proposalPda?: string;
+  error?: string;
+}
+
+/**
+ * Preview-only adapter.
+ *
+ * No Squads transaction is built, signed or broadcast here.
+ */
 export async function createMultisigAccount(
-  connection: Connection,
-  payer: Keypair,
-  params: CreateMultisigParams
-): Promise<any> {
-  try {
-    if (!params.members || params.members.length === 0 || params.threshold <= 0) {
-      return { success: false, error: "Membres ou seuil invalides" };
-    }
+  _connection: Connection,
+  _payer: Keypair,
+  params: CreateMultisigParams,
+): Promise<SquadsSimulationResult> {
+  if (
+    !params.members ||
+    params.members.length === 0 ||
+    params.threshold <= 0
+  ) {
     return {
-      success: true,
-      multisigPda: "squads_pda_" + Math.random().toString(36).substring(7),
-      signature: "simulated_squads_create_tx_" + Date.now()
+      success: false,
+      executionMode: "simulation",
+      error: "INVALID_MEMBERS_OR_THRESHOLD",
     };
-  } catch (error: any) {
-    return { success: false, error: error.message || String(error) };
   }
+
+  if (params.threshold > params.members.length) {
+    return {
+      success: false,
+      executionMode: "simulation",
+      error: "INVALID_THRESHOLD",
+    };
+  }
+
+  return {
+    success: true,
+    executionMode: "simulation",
+    multisigPda:
+      "squads_preview_" +
+      Math.random().toString(36).substring(7),
+    simulationId:
+      "squads_create_preview_" + Date.now(),
+  };
 }
 
 export async function createMultisigProposal(
-  connection: Connection,
-  payer: Keypair,
-  params: MultisigProposalParams
-): Promise<any> {
-  try {
-    if (!params.multisigPda) return { success: false, error: "multisigPda requis" };
+  _connection: Connection,
+  _payer: Keypair,
+  params: MultisigProposalParams,
+): Promise<SquadsSimulationResult> {
+  if (!params.multisigPda) {
     return {
-      success: true,
-      proposalPda: "squads_proposal_" + Math.random().toString(36).substring(7),
-      signature: "simulated_squads_proposal_tx_" + Date.now()
+      success: false,
+      executionMode: "simulation",
+      error: "MULTISIG_PDA_REQUIRED",
     };
-  } catch (error: any) {
-    return { success: false, error: error.message || String(error) };
   }
+
+  return {
+    success: true,
+    executionMode: "simulation",
+    proposalPda:
+      "squads_proposal_preview_" +
+      Math.random().toString(36).substring(7),
+    simulationId:
+      "squads_proposal_preview_" + Date.now(),
+  };
 }
