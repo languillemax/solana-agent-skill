@@ -1,6 +1,6 @@
 # Solana Agent Skill Toolkit
 
-Security-hardened Solana action toolkit for autonomous agents, written in TypeScript and usable through an Express REST API, ElizaOS integration, and a Terminal 3 Network (T3N) adapter.
+Security-hardened Solana action toolkit for autonomous agents, written in TypeScript and usable through an Express REST API, ElizaOS integration, and an authenticated Terminal 3 Network (T3N) policy guard.
 
 The project separates:
 
@@ -25,6 +25,9 @@ Agent / HTTP Client
         |
         v
     Risk policy
+        |
+        v
+Authenticated T3N policy
         |
         +------------------------------+
         |                              |
@@ -61,7 +64,7 @@ Lending / Kamino / Marginfi	Explicit preview adapter	No
 Perps	Explicit preview adapter	No
 Squads	Explicit preview adapter	No
 Token-2022 module	Explicit preview adapter	No
-T3N adapter	Policy / logical authorization layer	No direct RPC broadcast
+T3N solana-guard	Live authenticated policy enforcement	Authorizes SOL transfer, Jupiter swap and Pump.fun before signing
 
 Preview adapters return:
 {
@@ -90,10 +93,14 @@ are rejected.
 
 Central risk engine
 
-Default policy:
+Local default policy:
 max amount:      10 SOL
 max leverage:    10x
 max slippage:    500 bps / 5%
+
+Live T3N `solana-guard` policy:
+max amount:      5 SOL
+max slippage:    100 bps
 Signer isolation
 
 The HTTP API never accepts a private key in a request body.
@@ -177,6 +184,16 @@ Optional:
 SOLANA_RPC_URL
 JUPITER_API_URL
 PORT
+
+Terminal 3 integration:
+T3N_ENV
+T3N_API_KEY
+T3N_ORG_DID
+
+Terminal 3 integration:
+T3N_ENV
+T3N_API_KEY
+T3N_ORG_DID
 Never commit .env or private key material.
 
 Automated Tests
@@ -184,8 +201,8 @@ Automated Tests
 Run:
 npm test
 Current validated suite:
-35 tests
-35 pass
+42 tests
+42 pass
 0 fail
 Coverage includes:
 
@@ -199,7 +216,7 @@ read-only execution mode,
 Pump.fun safety checks,
 protocol preview contracts,
 ElizaOS registration,
-T3N guardrails,
+T3N authentication, delegation checks and live `solana-guard` policy enforcement,
 webhook parsing,
 lending/perps/Squads/Token-2022 constraints.
 
