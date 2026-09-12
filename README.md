@@ -190,10 +190,6 @@ T3N_ENV
 T3N_API_KEY
 T3N_ORG_DID
 
-Terminal 3 integration:
-T3N_ENV
-T3N_API_KEY
-T3N_ORG_DID
 Never commit .env or private key material.
 
 Automated Tests
