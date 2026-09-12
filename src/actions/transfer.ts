@@ -11,6 +11,7 @@ import {
 import { SolanaAgent } from "../agent.js";
 import { simulationGate } from "../security/simulation-gate.js";
 import { validateRiskLimits } from "../security/risk-engine.js";
+import { authorizeSolanaActionViaT3n } from "../t3n-authorize.js";
 
 async function simulateSignAndSend(
   agent: SolanaAgent,
@@ -75,6 +76,18 @@ export async function transferSOL(
 
   if (!Number.isFinite(amountSol) || amountSol <= 0) {
     throw new Error("INVALID_AMOUNT: amountSol must be positive");
+  }
+
+  const t3n = await authorizeSolanaActionViaT3n({
+    action: "SOL_TRANSFER",
+    amount_sol: amountSol,
+    destination,
+  });
+
+  if (!t3n.authorized) {
+    throw new Error(
+      `T3N_POLICY_DENIED: ${t3n.reason ?? "Action denied"}`,
+    );
   }
 
   const destinationPubkey = new PublicKey(destination);

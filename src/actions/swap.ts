@@ -3,6 +3,7 @@ import fetch from "cross-fetch";
 import { VersionedTransaction } from "@solana/web3.js";
 import { simulationGate } from "../security/simulation-gate.js";
 import { validateRiskLimits } from "../security/risk-engine.js";
+import { authorizeSolanaActionViaT3n } from "../t3n-authorize.js";
 
 export interface SwapParams {
   inputMint: string;
@@ -34,6 +35,27 @@ export async function executeJupiterSwap(
 
   if (!risk.valid) {
     throw new Error(`${risk.code}: ${risk.message}`);
+  }
+
+  const WSOL_MINT =
+    "So11111111111111111111111111111111111111112";
+
+  if (params.inputMint !== WSOL_MINT) {
+    throw new Error(
+      "T3N_POLICY_UNSUPPORTED: SWAP input must be SOL/wSOL",
+    );
+  }
+
+  const t3n = await authorizeSolanaActionViaT3n({
+    action: "SWAP",
+    amount_sol: params.amountLamports / 1_000_000_000,
+    slippage_bps: slippageBps,
+  });
+
+  if (!t3n.authorized) {
+    throw new Error(
+      `T3N_POLICY_DENIED: ${t3n.reason ?? "Action denied"}`,
+    );
   }
 
   const baseUrl =

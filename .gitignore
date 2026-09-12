@@ -5,3 +5,6 @@ dist/
 .env.*.local
 *.key
 *.pem
+
+# Rust build artifacts
+**/target/

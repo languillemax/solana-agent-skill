@@ -5,6 +5,7 @@ import {
 } from "@solana/web3.js";
 import { simulationGate } from "../security/simulation-gate.js";
 import { validateRiskLimits } from "../security/risk-engine.js";
+import { authorizeSolanaActionViaT3n } from "../t3n-authorize.js";
 
 export interface PumpFunTradeParams {
   mint: string;
@@ -41,6 +42,27 @@ export async function executePumpFunTrade(
     }
 
     const slippageBps = params.slippageBps ?? 100;
+
+    if (!params.denominatedInSol) {
+      return {
+        success: false,
+        error: "T3N_POLICY_UNSUPPORTED: Pump.fun amount must be denominated in SOL",
+      };
+    }
+
+    const t3n = await authorizeSolanaActionViaT3n({
+      action: "PUMPFUN",
+      amount_sol: params.amount,
+      slippage_bps: slippageBps,
+    });
+
+    if (!t3n.authorized) {
+      return {
+        success: false,
+        error: `T3N_POLICY_DENIED: ${t3n.reason ?? "Action denied"}`,
+      };
+    }
+
     const slippagePercent = slippageBps / 100;
     const priorityFee = params.priorityFee ?? 0.00005;
 
